@@ -41,11 +41,15 @@ export default function App() {
   const showNav = name !== 'onboard';
   const [sk, sl] = statusNow(S);
 
-  const NavButton = ({ k, l, variant }) => (
-    <button className={cur === k ? 'on' : ''} onClick={() => go(k)}>
+  const NavButton = ({ k, l }) => (
+    <button
+      className={cur === k ? 'on' : ''}
+      onClick={() => go(k)}
+      aria-current={cur === k ? 'page' : undefined}
+    >
       <NavIcon path={ICON[k]} />
       <span className="nav-label">{l}</span>
-      {k === 'inbox' && un > 0 && <span className="bd">{un}</span>}
+      {k === 'inbox' && un > 0 && <span className="bd" aria-label={`${un} unread`}>{un}</span>}
     </button>
   );
 
@@ -54,7 +58,7 @@ export default function App() {
     return (
       <>
         <div className="shell shell-onboard">
-          <main id="app">
+          <main id="app" aria-label="Set up BalanceConnect">
             <View />
           </main>
         </div>
@@ -66,6 +70,7 @@ export default function App() {
 
   return (
     <>
+      <a href="#app" className="skip-link">Skip to main content</a>
       <div className="shell">
         {/* Sidebar — visible on tablet/laptop via CSS */}
         <aside className="sb" aria-label="Primary">
@@ -73,8 +78,8 @@ export default function App() {
             <span className="sb-logo" aria-hidden="true">🌿</span>
             <span className="sb-name">BalanceConnect</span>
           </div>
-          <nav className="sb-nav">
-            {TABS.map(([k, l]) => <NavButton key={k} k={k} l={l} variant="side" />)}
+          <nav className="sb-nav" aria-label="Sections">
+            {TABS.map(([k, l]) => <NavButton key={k} k={k} l={l} />)}
           </nav>
           <div className="sb-foot">
             <span className={`pill st-${sk}`}>{sl}</span>
@@ -83,11 +88,11 @@ export default function App() {
         </aside>
 
         {/* Main content fills the remaining width */}
-        <main id="app" data-view={name}>
+        <main id="app" data-view={name} tabIndex={-1} aria-label={viewLabel(name)}>
           {showFamilyBanner && (
             <button className="banner" onClick={() => go('family')}>
-              <span>💛 Family Time · non-urgent alerts are silenced</span>
-              <span>›</span>
+              <span>💛 Family Time is on · non-urgent alerts are silenced</span>
+              <span aria-hidden="true">›</span>
             </button>
           )}
           <View />
@@ -97,7 +102,7 @@ export default function App() {
       {/* Bottom tab bar — visible on phone via CSS */}
       <nav className="tb" aria-label="Main">
         <div>
-          {TABS.map(([k, l]) => <NavButton key={k} k={k} l={l} variant="bottom" />)}
+          {TABS.map(([k, l]) => <NavButton key={k} k={k} l={l} />)}
         </div>
       </nav>
 
@@ -105,4 +110,13 @@ export default function App() {
       <ConfirmModal />
     </>
   );
+}
+
+function viewLabel(name) {
+  const labels = {
+    home: 'Home', inbox: 'Messages', msg: 'Message', rm: 'Response window', family: 'Family Time',
+    shutdown: 'End of day', schedule: 'Schedule', analytics: 'Well-being analytics', student: 'Student view',
+    more: 'More', data: 'Data management', about: 'About', sim: 'Test scenarios', settings: 'Settings',
+  };
+  return labels[name] || 'Main content';
 }

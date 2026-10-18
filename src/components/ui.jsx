@@ -2,6 +2,7 @@ import React from 'react';
 import { useStore } from '../store.jsx';
 import { initials } from '../lib/utils.js';
 import { CAT } from '../lib/triage.js';
+import Dialog from './Dialog.jsx';
 
 // Avatar bubble with student initials + category colour.
 export function Avatar({ sid }) {
@@ -48,33 +49,48 @@ export function Head({ title, back = 'home' }) {
   const { go } = useStore();
   return (
     <div className="row">
-      <button className="btn ghost sm" onClick={() => go(back)} aria-label="Back">←</button>
+      <button className="btn ghost sm" onClick={() => go(back)}>
+        <span aria-hidden="true">←</span> Back
+      </button>
       <h2 className="grow">{title}</h2>
     </div>
   );
 }
 
 export function Toast() {
-  const { toastMsg } = useStore();
-  if (!toastMsg) return null;
-  return <div id="toast">{toastMsg}</div>;
+  const { toastMsg, dismissToast } = useStore();
+  const data = typeof toastMsg === 'string' ? { text: toastMsg } : toastMsg;
+  return (
+    <div id="toast-region" aria-live="polite" aria-atomic="true" className="sr-live">
+      {data && (
+        <div id="toast" role="status">
+          <span>{data.text}</span>
+          {data.action && (
+            <button
+              className="toast-action"
+              onClick={() => { data.action.onClick(); dismissToast(); }}
+            >
+              {data.action.label}
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export function ConfirmModal() {
   const { confirmState, closeConfirm } = useStore();
   if (!confirmState) return null;
-  const { title, body, okLabel } = confirmState;
+  const { title, body, okLabel, danger } = confirmState;
   return (
-    <div className="sheet" onClick={(e) => { if (e.target === e.currentTarget) closeConfirm(false); }}>
-      <div>
-        <h3>{title}</h3>
-        <p className="sm">{body}</p>
-        <div className="row">
-          <button className="btn ghost grow" onClick={() => closeConfirm(false)}>Not now</button>
-          <button className="btn grow" onClick={() => closeConfirm(true)}>{okLabel}</button>
-        </div>
+    <Dialog title={title} onClose={() => closeConfirm(false)} describedById="confirm-desc">
+      <p className="sm" id="confirm-desc">{body}</p>
+      <div className="row">
+        <button className="btn ghost grow" onClick={() => closeConfirm(false)}>Cancel</button>
+        <button className={`btn grow ${danger ? 'danger' : ''}`} onClick={() => closeConfirm(true)}>{okLabel}</button>
       </div>
-    </div>
+    </Dialog>
   );
 }
 

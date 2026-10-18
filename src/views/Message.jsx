@@ -21,8 +21,14 @@ export default function Message() {
   const mUrg = () => { mutate((S) => { const x = findM(S); x.urgent = !x.urgent; }); toast(m.urgent ? 'Urgent removed' : 'Marked urgent, moved up the queue'); };
   const mFol = () => { mutate((S) => { const x = findM(S); x.status = 'followup'; if (S.rm.active && !S.rm.done.includes(x.id)) S.rm.done.push(x.id); }); toast('Marked for follow-up'); };
   const mArc = () => {
-    mutate((S) => { const x = findM(S); x.status = x.status === 'archived' ? (x.repliedAt ? 'replied' : 'awaiting') : 'archived'; });
-    toast(findM(S).status === 'archived' ? 'Archived' : 'Restored');
+    const prevStatus = m.status;
+    const wasArchived = prevStatus === 'archived';
+    mutate((S) => { const x = findM(S); x.status = wasArchived ? (x.repliedAt ? 'replied' : 'awaiting') : 'archived'; });
+    if (wasArchived) {
+      toast('Message restored');
+    } else {
+      toast('Message archived', { label: 'Undo', onClick: () => { mutate((S) => { const x = findM(S); if (x) x.status = prevStatus; }); toast('Archive undone'); } });
+    }
     go('inbox');
   };
   const changePri = (v) => { mutate((S) => { findM(S).pri = v; }); toast('Priority updated'); };

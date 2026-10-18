@@ -1,0 +1,102 @@
+import { describe, it, expect } from 'vitest';
+import { sanitizeState, sanitizeSettings, defaults, seed } from '../src/lib/state.js';
+import { range, metrics, buckets } from '../src/lib/analytics.js';
+import { addDays, dk, sod } from '../src/lib/utils.js';
+
+describe('state sanitization / migration', () => {
+  it('rejects null / wrong-version objects', () => {
+    expect(sanitizeState(null)).toBeNull();
+    expect(sanitizeState({ v: 2 })).toBeNull();
+    expect(sanitizeState('nonsense')).toBeNull();
+  });
+
+  it('backfills missing settings fields from defaults', () => {
+    const s = sanitizeSettings({ name: 'Mika' });
+    expect(s.name).toBe('Mika');
+    expect(Array.isArray(s.days)).toBe(true);
+    expect(s.days.length).toBe(7);
+    expect(s.windows.length).toBeGreaterThan(0);
+    expect(s.family).toHaveProperty('on');
+    expect(s.quiet).toHaveProperty('s');
+    expect(['hold', 'except_family', 'always']).toContain(s.urgent);
+  });
+
+  it('repairs a partial v1 state so collections always exist', () => {
+    const repaired = sanitizeState({ v: 1, students: [{ id: 'a', name: 'A' }] });
+    expect(repaired).not.toBeNull();
+    expect(Array.isArray(repaired.messages)).toBe(true);
+    expect(Array.isArray(repaired.lessons)).toBe(true);
+    expect(Array.isArray(repaired.acts)).toBe(true);
+    expect(repaired.family).toMatchObject({ active: false });
+    expect(repaired.rm).toMatchObject({ active: false, done: [], skip: [] });
+  });
+
+  it('drops malformed collection entries', () => {
+    const repaired = sanitizeState({
+      v: 1,
+      students: [{ id: 'a', name: 'A' }, { name: 'no id' }, null],
+      messages: [{ id: 'm1', thread: [] }, { id: 'bad' }, 42],
+      lessons: [{ id: 'l1', date: '2026-01-01' }, { id: 'nope' }],
+      acts: [{ type: 'msg', at: 1 }, { type: 'x' }, {}],
+    });
+    expect(repaired.students.length).toBe(1);
+    expect(repaired.messages.length).toBe(1);
+    expect(repaired.lessons.length).toBe(1);
+    expect(repaired.acts.length).toBe(1);
+  });
+
+  it('sanitizing a fresh seed preserves it intact', () => {
+    const s = seed();
+    const repaired = sanitizeState(s);
+    expect(repaired.students.length).toBe(s.students.length);
+    expect(repaired.onboarded).toBe(s.onboarded);
+  });
+
+  it('defaults has a complete, valid shape', () => {
+    const d = defaults();
+    expect(d.days.length).toBe(7);
+    expect(d.windows.length).toBeGreaterThan(0);
+    expect(d.tpl).toContain('{next}');
+  });
+});
+
+describe('analytics', () => {
+  it('range returns an ordered [start,end) for week/month/year', () => {
+    for (const p of ['week', 'month', 'year']) {
+      const [a, b] = range(p);
+      expect(a).toBeInstanceOf(Date);
+      expect(b.getTime()).toBeGreaterThan(a.getTime());
+    }
+  });
+
+  it('metrics aggregates counts and honours includeDemo', () => {
+    const now = Date.now();
+    const S = {
+      includeDemo: true,
+      lessons: [],
+      acts: [
+        { type: 'msg', at: now, after: true, demo: false },
+        { type: 'msg', at: now, after: false, demo: true },
+        { type: 'reply', at: now, dur: 120, ok: true, demo: false },
+        { type: 'family', at: now, dur: 60, demo: false },
+      ],
+    };
+    const m = metrics(S, now - 1000, now + 1000);
+    expect(m.msgs).toBe(2);
+    expect(m.after).toBe(1);
+    expect(m.rep).toBe(1);
+    expect(m.famMin).toBe(60);
+
+    // Excluding demo should drop the demo-tagged message.
+    const m2 = metrics({ ...S, includeDemo: false }, now - 1000, now + 1000);
+    expect(m2.msgs).toBe(1);
+  });
+
+  it('buckets produces 7 entries for a week range', () => {
+    const [a, b] = range('week');
+    const A = [{ type: 'msg', at: +sod(a) + 1000, after: false }];
+    const out = buckets('week', a, b, A);
+    expect(out.length).toBe(7);
+    expect(out.reduce((s, x) => s + x.in + x.af, 0)).toBeGreaterThanOrEqual(1);
+  });
+});

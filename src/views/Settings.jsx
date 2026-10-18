@@ -109,10 +109,18 @@ function SettingsForm({ draft, setDraft, onSave, sec }) {
 
       <section className="card" id="sec-auto">
         <label className="tog"><input {...cb('auto')} /><h3>Automatic replies</h3></label>
-        <label className="sm">Message <span className="mut">· {'{next}'} = next reply time, {'{name}'} = your name</span>
-          <textarea value={D.tpl} onChange={(e) => upd('tpl', e.target.value)} />
+        <p className="mut">When a message arrives outside your reply windows, students get this
+          message automatically so they know when to expect an answer.</p>
+        <label className="sm" htmlFor="auto-tpl">Your automatic reply
+          <textarea id="auto-tpl" value={D.tpl} onChange={(e) => upd('tpl', e.target.value)} placeholder="Hi! Thanks for your message…" />
         </label>
-        <p className="mut">Preview if a message arrived now:</p>
+        <p className="mut">Tip: the app fills in these for you automatically —
+          <b> {'{next}'}</b> becomes your next reply time, and <b>{'{name}'}</b> becomes your name.</p>
+        <div className="row wrap" style={{ gap: 6 }}>
+          <button type="button" className="btn ghost sm" onClick={() => upd('tpl', (D.tpl || '') + '{next}')}>Insert “next reply time”</button>
+          <button type="button" className="btn ghost sm" onClick={() => upd('tpl', (D.tpl || '') + '{name}')}>Insert “your name”</button>
+        </div>
+        <p className="mut">Here’s how it would look right now:</p>
         <div className="bub a" style={{ maxWidth: '100%' }}>{previewAR(D)}</div>
       </section>
 

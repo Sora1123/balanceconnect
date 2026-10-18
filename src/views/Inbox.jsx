@@ -1,6 +1,6 @@
 import React from 'react';
 import { useStore } from '../store.jsx';
-import { Avatar, StatusChip, CatChip } from '../components/ui.jsx';
+import { Avatar, StatusChip } from '../components/ui.jsx';
 import { ago } from '../lib/utils.js';
 import { Avail } from '../lib/availability.js';
 import { CAT } from '../lib/triage.js';

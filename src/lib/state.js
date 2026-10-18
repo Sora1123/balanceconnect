@@ -74,14 +74,81 @@ export function seed() {
   return S;
 }
 
-export function load() {
-  let S;
-  try { S = JSON.parse(localStorage.getItem('bc1')); } catch (e) { /* ignore */ }
-  if (!S || S.v !== 1) S = seed();
-  return S;
+const STORAGE_KEY = 'bc1';
+
+// Ensure a settings object has every field the app relies on. Missing or
+// malformed fields are backfilled from defaults so older or partial saves
+// (and hand-edited localStorage) can never crash a view.
+function sanitizeSettings(s) {
+  const d = defaults();
+  if (!s || typeof s !== 'object') return d;
+  const day = (v, def) => (v && typeof v === 'object' && typeof v.s === 'string' && typeof v.e === 'string'
+    ? { on: !!v.on, s: v.s, e: v.e } : def);
+  const win = (w) => (w && typeof w.s === 'string' && typeof w.e === 'string' ? { s: w.s, e: w.e } : null);
+  const windows = Array.isArray(s.windows) ? s.windows.map(win).filter(Boolean) : [];
+  return {
+    name: typeof s.name === 'string' ? s.name : d.name,
+    subject: typeof s.subject === 'string' ? s.subject : d.subject,
+    days: Array.isArray(s.days) && s.days.length === 7 ? s.days.map((v, i) => day(v, d.days[i])) : d.days,
+    windows: windows.length ? windows : d.windows,
+    family: { ...d.family, ...(s.family && typeof s.family === 'object' ? s.family : {}) },
+    quiet: { ...d.quiet, ...(s.quiet && typeof s.quiet === 'object' ? s.quiet : {}) },
+    auto: typeof s.auto === 'boolean' ? s.auto : d.auto,
+    tpl: typeof s.tpl === 'string' ? s.tpl : d.tpl,
+    urgent: ['hold', 'except_family', 'always'].includes(s.urgent) ? s.urgent : d.urgent,
+    notif: typeof s.notif === 'boolean' ? s.notif : d.notif,
+    quietAfterShutdown: typeof s.quietAfterShutdown === 'boolean' ? s.quietAfterShutdown : d.quietAfterShutdown,
+    show: { ...d.show, ...(s.show && typeof s.show === 'object' ? s.show : {}) },
+    typical: typeof s.typical === 'string' ? s.typical : d.typical,
+  };
 }
 
-export function save(S) { try { localStorage.setItem('bc1', JSON.stringify(S)); } catch (e) { /* ignore */ } }
+// Repair a loaded state object so every top-level collection exists and has the
+// right shape. Anything unrecognisable falls back to a fresh seed.
+function sanitizeState(S) {
+  if (!S || typeof S !== 'object' || S.v !== 1) return null;
+  const arr = (v) => (Array.isArray(v) ? v : []);
+  const obj = (v) => (v && typeof v === 'object' && !Array.isArray(v) ? v : {});
+  return {
+    v: 1,
+    onboarded: !!S.onboarded,
+    settings: sanitizeSettings(S.settings),
+    includeDemo: typeof S.includeDemo === 'boolean' ? S.includeDemo : true,
+    tip: Number.isFinite(S.tip) ? S.tip : 0,
+    students: arr(S.students).filter((s) => s && typeof s.id === 'string' && typeof s.name === 'string'),
+    messages: arr(S.messages).filter((m) => m && typeof m.id === 'string' && Array.isArray(m.thread)),
+    lessons: arr(S.lessons).filter((l) => l && typeof l.id === 'string' && typeof l.date === 'string'),
+    acts: arr(S.acts).filter((a) => a && typeof a.type === 'string' && Number.isFinite(a.at)),
+    tasks: obj(S.tasks),
+    shutdowns: obj(S.shutdowns),
+    family: { active: false, manual: false, start: null, endedOn: null, ...obj(S.family) },
+    offlineUntil: Number.isFinite(S.offlineUntil) ? S.offlineUntil : null,
+    rm: { active: false, start: null, done: [], skip: [], ...obj(S.rm) },
+  };
+}
+
+export function load() {
+  let raw;
+  try { raw = JSON.parse(localStorage.getItem(STORAGE_KEY)); } catch (e) { raw = null; }
+  const repaired = sanitizeState(raw);
+  // If there were students but none survived sanitisation, keep the demo seed so
+  // test messages always have a valid sender.
+  if (repaired && repaired.students.length === 0) return seed();
+  return repaired || seed();
+}
+
+// Returns true on success, false if persistence failed (e.g. storage full or
+// disabled). Callers can surface this to the user instead of losing data silently.
+export function save(S) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(S));
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+export { STORAGE_KEY, sanitizeState, sanitizeSettings };
 
 // Derived helpers
 export const stuName = (S, id) => (S.students.find((s) => s.id === id) || { name: 'Unknown' }).name;

@@ -18,8 +18,8 @@
   --shadow-lg:0 8px 30px rgba(70,50,120,.14);
   --ring:0 0 0 3px rgba(122,98,196,.28);
   /* typography */
-  --fd:"Nunito",ui-rounded,system-ui,sans-serif;
-  --fb:"Figtree",system-ui,-apple-system,sans-serif;
+  --fd:var(--font-display),"Nunito",ui-rounded,system-ui,sans-serif;
+  --fb:var(--font-body),"Figtree",system-ui,-apple-system,sans-serif;
   /* radii + metrics */
   --r-sm:10px;--r:14px;--r-lg:20px;--r-xl:26px;
   --app-w:460px;--sb-w:248px;
@@ -247,8 +247,12 @@ nav.tb .bd{position:absolute;top:0;right:6px;background:var(--rose);color:#fff;b
 
 /* ===== Toast ===== */
 #toast{position:fixed;top:calc(14px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);
-  background:var(--ink);color:#fff;padding:12px 18px;border-radius:14px;font:600 13px var(--fb);z-index:30;max-width:90%;
-  box-shadow:var(--shadow-lg);animation:drop .3s cubic-bezier(.2,.8,.2,1) both}
+  background:var(--ink);color:#fff;padding:12px 18px;border-radius:14px;font:600 13px var(--fb);z-index:30;max-width:92%;
+  box-shadow:var(--shadow-lg);animation:drop .3s cubic-bezier(.2,.8,.2,1) both;
+  display:flex;align-items:center;gap:14px;pointer-events:auto}
+.toast-action{background:rgba(255,255,255,.18);color:#fff;border:0;border-radius:999px;padding:6px 14px;
+  font:700 13px var(--fb);cursor:pointer;flex:none;min-height:36px}
+.toast-action:hover{background:rgba(255,255,255,.28)}
 @keyframes drop{from{transform:translate(-50%,-10px);opacity:0}to{transform:translate(-50%,0);opacity:1}}
 
 /* ===== Notices ===== */
@@ -277,4 +281,26 @@ nav.tb .bd{position:absolute;top:0;right:6px;background:var(--rose);color:#fff;b
 @media (min-width:1280px){ .content-grid{grid-template-columns:repeat(3,minmax(0,1fr))} }
 .readable{width:100%;max-width:760px}
 
-@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+/* ===== Accessibility utilities ===== */
+/* Skip link: hidden until focused, then visible top-left. */
+.skip-link{position:fixed;top:-60px;left:12px;z-index:60;background:var(--pur);color:var(--pur-ink);
+  padding:10px 16px;border-radius:12px;font:700 14px var(--fb);text-decoration:none;box-shadow:var(--shadow-lg);
+  transition:top .18s}
+.skip-link:focus{top:12px;outline:none;box-shadow:var(--ring),var(--shadow-lg)}
+/* Visually-hidden wrapper that keeps the live region in the a11y tree. */
+.sr-live{position:fixed;top:0;left:0;pointer-events:none}
+/* Keyboard users get a clearly visible focus ring everywhere. */
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,
+[tabindex]:focus-visible,summary:focus-visible{outline:none;box-shadow:var(--ring);border-radius:12px}
+#app:focus{outline:none}
+/* Comfortable tap targets (WCAG 2.2 Target Size): small buttons still ≥40px tall. */
+.btn{min-height:44px}
+.btn.sm{min-height:40px}
+.tab{min-height:40px}
+.sb-nav button{min-height:46px}
+nav.tb button{min-height:52px;min-width:56px;justify-content:center}
+.lnk{min-height:48px}
+input,select,textarea{min-height:44px}
+input[type=checkbox],input[type=radio]{min-height:0}
+
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;scroll-behavior:auto!important}}

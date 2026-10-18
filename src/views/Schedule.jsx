@@ -2,32 +2,40 @@ import React, { useState, useEffect } from 'react';
 import { useStore } from '../store.jsx';
 import { fmtT, dk, atDate, addDays, sod, toMin, uid, DAYS } from '../lib/utils.js';
 import { conflicts } from '../lib/schedule.js';
+import Dialog from '../components/Dialog.jsx';
 
 function LessonSheet({ initial, onClose }) {
-  const { S, mutate, save, toast, confirmBox, stuName } = useStore();
+  const { S, mutate, toast, confirmBox, stuName } = useStore();
   const [L, setL] = useState(initial);
   const [cf, setCf] = useState(null);
   const isExisting = S.lessons.some((x) => x.id === L.id);
-  const set = (k, v) => setL((p) => ({ ...p, [k]: v }));
+  const set = (k, v) => { setL((p) => ({ ...p, [k]: v })); if (cf) setCf(null); };
 
   const close = () => onClose(null);
 
+  // Field-level validity (used for inline hints + aria-invalid).
+  const timeInvalid = L.s && L.e && toMin(L.e) <= toMin(L.s);
+
   const del = () => {
     const id = L.id;
-    confirmBox('Delete this lesson?', 'It will be removed from your schedule.', 'Delete', () => {
-      mutate((S) => { S.lessons = S.lessons.filter((x) => x.id !== id); });
-      toast('Lesson deleted');
-    });
     onClose(null);
+    confirmBox(
+      'Delete this lesson?',
+      `This removes ${stuName(L.sid)}’s “${(L.subject || 'lesson').trim()}” from your schedule. This can’t be undone.`,
+      'Delete lesson',
+      () => { mutate((S) => { S.lessons = S.lessons.filter((x) => x.id !== id); }); toast('Lesson deleted'); },
+      { danger: true },
+    );
   };
 
   const doSave = () => {
     const lesson = { ...L, subject: (L.subject || '').trim() || 'Lesson' };
-    if (!lesson.date || !lesson.s || !lesson.e || toMin(lesson.e) <= toMin(lesson.s)) {
-      setCf({ err: 'End time must be after start time.' }); return;
+    if (!lesson.date) { setCf({ err: 'Please choose a date for the lesson.' }); return; }
+    if (!lesson.s || !lesson.e || toMin(lesson.e) <= toMin(lesson.s)) {
+      setCf({ err: 'The end time needs to be after the start time (for example, 2:00 PM to 3:00 PM).' }); return;
     }
     const c = conflicts(S, (id) => stuName(id), lesson);
-    if (c.hard.length) { setCf({ err: c.hard.join('. ') + '. Pick another time.' }); return; }
+    if (c.hard.length) { setCf({ err: c.hard.join('. ') + '. Please pick a different time.' }); return; }
     const prevSoft = cf?.soft?.join();
     if (c.soft.length && prevSoft !== c.soft.join()) { setCf({ soft: c.soft }); setL(lesson); return; }
     mutate((S) => {
@@ -39,30 +47,30 @@ function LessonSheet({ initial, onClose }) {
   };
 
   return (
-    <div className="sheet" onClick={(e) => { if (e.target === e.currentTarget) close(); }}>
-      <div>
-        <h3>{isExisting ? 'Edit lesson' : 'New lesson'}</h3>
-        <label className="sm">Student
-          <select value={L.sid} onChange={(e) => set('sid', e.target.value)}>
-            {S.students.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-          </select>
-        </label>
-        <label className="sm">Subject<input value={L.subject} onChange={(e) => set('subject', e.target.value)} /></label>
-        <label className="sm">Date<input type="date" value={L.date} onChange={(e) => set('date', e.target.value)} /></label>
-        <div className="row">
-          <label className="sm grow">Start<input type="time" value={L.s} onChange={(e) => set('s', e.target.value)} style={{ width: '100%' }} /></label>
-          <label className="sm grow">End<input type="time" value={L.e} onChange={(e) => set('e', e.target.value)} style={{ width: '100%' }} /></label>
-        </div>
-        <label className="sm">Notes<textarea value={L.notes} onChange={(e) => set('notes', e.target.value)} /></label>
-        {cf?.err && <div className="err">{cf.err}</div>}
-        {cf?.soft?.length > 0 && <div className="warn">Heads up: {cf.soft.join('; ')}. Tap Save again to keep it.</div>}
-        <div className="row">
-          <button className="btn ghost grow" onClick={close}>Cancel</button>
-          {isExisting && <button className="btn danger" onClick={del}>Delete</button>}
-          <button className="btn grow" onClick={doSave}>Save</button>
-        </div>
+    <Dialog title={isExisting ? 'Edit lesson' : 'New lesson'} onClose={close}>
+      <label className="sm">Student
+        <select value={L.sid} onChange={(e) => set('sid', e.target.value)}>
+          {S.students.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+        </select>
+      </label>
+      <label className="sm">What is the lesson about?
+        <input value={L.subject} onChange={(e) => set('subject', e.target.value)} placeholder="e.g. JLPT N4 grammar" />
+      </label>
+      <label className="sm">Date<input type="date" value={L.date} onChange={(e) => set('date', e.target.value)} /></label>
+      <div className="row">
+        <label className="sm grow">Start time<input type="time" value={L.s} onChange={(e) => set('s', e.target.value)} aria-invalid={timeInvalid || undefined} style={{ width: '100%' }} /></label>
+        <label className="sm grow">End time<input type="time" value={L.e} onChange={(e) => set('e', e.target.value)} aria-invalid={timeInvalid || undefined} style={{ width: '100%' }} /></label>
       </div>
-    </div>
+      {timeInvalid && <p className="sm" style={{ color: 'var(--rose)' }}>⚠ The end time should be after the start time.</p>}
+      <label className="sm">Notes <span className="mut">(optional)</span><textarea value={L.notes} onChange={(e) => set('notes', e.target.value)} placeholder="Anything to remember for this lesson" /></label>
+      {cf?.err && <div className="err" role="alert"><span aria-hidden="true">⚠ </span>{cf.err}</div>}
+      {cf?.soft?.length > 0 && <div className="warn" role="alert"><span aria-hidden="true">💡 </span>Heads up: {cf.soft.join('; ')}. Press Save again to keep this time anyway.</div>}
+      <div className="row">
+        <button className="btn ghost grow" onClick={close}>Cancel</button>
+        {isExisting && <button className="btn danger" onClick={del}>Delete</button>}
+        <button className="btn grow" onClick={doSave}>Save</button>
+      </div>
+    </Dialog>
   );
 }
 

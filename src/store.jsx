@@ -15,6 +15,7 @@ export function StoreProvider({ children }) {
   const [mounted, setMounted] = useState(false);
   const [, setTick] = useState(0);
   const rerender = useCallback(() => setTick((t) => t + 1), []);
+  const toastRef = useRef(null);
 
   const [route, setRoute] = useState({ name: 'home' });
 
@@ -33,23 +34,42 @@ export function StoreProvider({ children }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const save = useCallback(() => saveState(Sref.current), []);
+  const saveFailed = useRef(false);
+  const warnIfSaveFailed = useCallback((ok) => {
+    if (!ok && !saveFailed.current) {
+      saveFailed.current = true;
+      toastRef.current?.('Couldn’t save your changes — your browser storage may be full or disabled. Your work is kept for now but may be lost on refresh.');
+    } else if (ok) {
+      saveFailed.current = false;
+    }
+  }, []);
+
+  const save = useCallback(() => {
+    const ok = saveState(Sref.current);
+    warnIfSaveFailed(ok);
+    return ok;
+  }, [warnIfSaveFailed]);
 
   // Apply a mutation to the live state, persist, and re-render.
   const mutate = useCallback((fn) => {
     fn(Sref.current);
-    saveState(Sref.current);
+    const ok = saveState(Sref.current);
+    warnIfSaveFailed(ok);
     rerender();
-  }, [rerender]);
+  }, [rerender, warnIfSaveFailed]);
 
-  // Toast
+  // Toast — supports an optional action button (e.g. Undo). Toasts with an
+  // action stay longer so users have time to react.
   const [toastMsg, setToastMsg] = useState(null);
   const toastTimer = useRef(null);
-  const toast = useCallback((t) => {
-    setToastMsg(t);
+  const toast = useCallback((t, action) => {
+    const payload = typeof t === 'string' ? { text: t, action } : t;
+    setToastMsg(payload);
     clearTimeout(toastTimer.current);
-    toastTimer.current = setTimeout(() => setToastMsg(null), 3200);
+    toastTimer.current = setTimeout(() => setToastMsg(null), payload.action ? 6000 : 3200);
   }, []);
+  const dismissToast = useCallback(() => { clearTimeout(toastTimer.current); setToastMsg(null); }, []);
+  toastRef.current = toast;
 
   const go = useCallback((name, p = {}) => {
     setRoute({ name, ...p });
@@ -60,8 +80,8 @@ export function StoreProvider({ children }) {
 
   // Confirm modal
   const [confirmState, setConfirmState] = useState(null);
-  const confirmBox = useCallback((title, body, okLabel, cb) => {
-    setConfirmState({ title, body, okLabel, cb });
+  const confirmBox = useCallback((title, body, okLabel, cb, opts = {}) => {
+    setConfirmState({ title, body, okLabel, cb, danger: !!opts.danger });
   }, []);
   const closeConfirm = useCallback((run) => {
     setConfirmState((c) => { if (run && c && c.cb) c.cb(); return null; });
@@ -69,7 +89,7 @@ export function StoreProvider({ children }) {
 
   const value = {
     S: Sref.current, mutate, save, rerender,
-    toast, toastMsg,
+    toast, toastMsg, dismissToast,
     route, go, patchRoute, setRoute,
     confirmBox, confirmState, closeConfirm,
     stuName: (id) => stuNameFn(Sref.current, id),
