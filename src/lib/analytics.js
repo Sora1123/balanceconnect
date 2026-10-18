@@ -1,0 +1,30 @@
+// Analytics service: date ranges, metrics aggregation, chart buckets.
+import { sod, addDays, atDate, toMin, DAYS } from './utils.js';
+
+export function range(p, off = 0) {
+  const n = new Date(); let a, b;
+  if (p === 'week') { a = sod(n); a.setDate(a.getDate() - ((a.getDay() + 6) % 7) + 7 * off); b = addDays(a, 7); }
+  else if (p === 'month') { a = new Date(n.getFullYear(), n.getMonth() + off, 1); b = new Date(n.getFullYear(), n.getMonth() + off + 1, 1); }
+  else { a = new Date(n.getFullYear() + off, 0, 1); b = new Date(n.getFullYear() + off + 1, 0, 1); }
+  return [a, b];
+}
+
+export function metrics(S, a, b) {
+  const A = S.acts.filter((x) => x.at >= +a && x.at < +b && (S.includeDemo || !x.demo));
+  const T = (t) => A.filter((x) => x.type === t);
+  const msgs = T('msg'), rep = T('reply'), fam = T('family'), ses = T('session');
+  const lessonMin = S.lessons.filter((l) => { const t = +atDate(l.date, l.e); return t >= +a && t < +b && t <= Date.now(); }).reduce((s, l) => s + toMin(l.e) - toMin(l.s), 0);
+  return {
+    n: A.length, msgs: msgs.length, after: msgs.filter((x) => x.after).length, inWin: msgs.filter((x) => !x.after).length, auto: T('auto').length,
+    rep: rep.length, repOk: rep.filter((x) => x.ok).length, avg: rep.length ? rep.reduce((s, x) => s + x.dur, 0) / rep.length : null,
+    fam: fam.length, famMin: fam.reduce((s, x) => s + (x.dur || 0), 0), shut: T('shutdown').length, silenced: T('silenced').length,
+    work: lessonMin + ses.reduce((s, x) => s + (x.dur || 0), 0), A,
+  };
+}
+
+export function buckets(p, a, b, A) {
+  const out = [];
+  if (p === 'year') { for (let i = 0; i < 12; i++) { const s = new Date(a.getFullYear(), i, 1), e = new Date(a.getFullYear(), i + 1, 1); out.push([s.toLocaleDateString(undefined, { month: 'narrow' }), s, e]); } }
+  else { for (let d = new Date(a); d < b; d = addDays(d, 1)) out.push([p === 'week' ? DAYS[d.getDay()] : (d.getDate() % 5 === 1 ? d.getDate() : ''), new Date(d), addDays(d, 1)]); }
+  return out.map(([l, s, e]) => { const M = A.filter((x) => x.type === 'msg' && x.at >= +s && x.at < +e); return { l, in: M.filter((x) => !x.after).length, af: M.filter((x) => x.after).length }; });
+}
