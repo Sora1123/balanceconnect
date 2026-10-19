@@ -41,10 +41,12 @@ export default function Dialog({ title, titleId, describedById, onClose, childre
     // Prevent background scroll while the dialog is open.
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
+    document.body.classList.add('dialog-open');
 
     return () => {
       document.removeEventListener('keydown', onKeyDown, true);
       document.body.style.overflow = prevOverflow;
+      document.body.classList.remove('dialog-open');
       // Restore focus to whatever opened the dialog.
       const el = previouslyFocused.current;
       if (el && typeof el.focus === 'function') el.focus();

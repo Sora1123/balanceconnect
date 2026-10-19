@@ -2,7 +2,22 @@ import React, { useState, useEffect } from 'react';
 import { useStore } from '../store.jsx';
 import { fmtT, dk, atDate, addDays, sod, toMin, uid, DAYS } from '../lib/utils.js';
 import { conflicts } from '../lib/schedule.js';
+import { COURSE_BY_ID } from '../lib/state.js';
 import Dialog from '../components/Dialog.jsx';
+
+// Add `mins` minutes to an HH:MM string, clamped to 23:59.
+function addMins(hhmm, mins) {
+  const total = Math.min(23 * 60 + 59, toMin(hhmm) + mins);
+  const h = Math.floor(total / 60), m = total % 60;
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+}
+
+// Build a sensible new-lesson draft: end time follows the student's course length.
+function newLessonDraft(students, dateKey, start = '13:00') {
+  const sid = students[0] ? students[0].id : '';
+  const mins = (students[0] && COURSE_BY_ID[students[0].courseId]?.mins) || 60;
+  return { id: uid(), sid, subject: '', date: dateKey, s: start, e: addMins(start, mins), notes: '' };
+}
 
 function LessonSheet({ initial, onClose }) {
   const { S, mutate, toast, confirmBox, stuName } = useStore();
@@ -49,12 +64,22 @@ function LessonSheet({ initial, onClose }) {
   return (
     <Dialog title={isExisting ? 'Edit lesson' : 'New lesson'} onClose={close}>
       <label className="sm">Student
-        <select value={L.sid} onChange={(e) => set('sid', e.target.value)}>
+        <select value={L.sid} onChange={(e) => {
+          const sid = e.target.value;
+          const mins = COURSE_BY_ID[S.students.find((s) => s.id === sid)?.courseId]?.mins;
+          // Only auto-adjust the end time on an untouched draft (no subject yet).
+          if (!isExisting && !(L.subject || '').trim() && mins) {
+            setL((p) => ({ ...p, sid, e: addMins(p.s, mins) }));
+            if (cf) setCf(null);
+          } else {
+            set('sid', sid);
+          }
+        }}>
           {S.students.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
         </select>
       </label>
       <label className="sm">What is the lesson about?
-        <input value={L.subject} onChange={(e) => set('subject', e.target.value)} placeholder="e.g. JLPT N4 grammar" />
+        <input value={L.subject} onChange={(e) => set('subject', e.target.value)} placeholder="e.g. Hiragana review, JLPT N3, IB Paper 1" />
       </label>
       <label className="sm">Date<input type="date" value={L.date} onChange={(e) => set('date', e.target.value)} /></label>
       <div className="row">
@@ -114,7 +139,7 @@ export default function Schedule() {
       if (l) setSheet({ ...l });
       patchRoute({ editId: undefined });
     } else if (route.newLesson) {
-      setSheet({ id: uid(), sid: S.students[0].id, subject: '', date: route.date || dk(new Date()), s: '13:00', e: '14:00', notes: '' });
+      setSheet(newLessonDraft(S.students, route.date || dk(new Date())));
       patchRoute({ newLesson: undefined });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -123,7 +148,7 @@ export default function Schedule() {
   const D = atDate(d, '12:00');
   const closeSheet = (savedDate) => { setSheet(null); if (savedDate) patchRoute({ date: savedDate }); };
 
-  const newLesson = () => setSheet({ id: uid(), sid: S.students[0].id, subject: '', date: d, s: '13:00', e: '14:00', notes: '' });
+  const newLesson = () => setSheet(newLessonDraft(S.students, d));
   const editLesson = (l) => setSheet({ ...l });
   const shift = (v) => { patchRoute({ date: dk(addDays(D, (mode === 'week' ? 7 : 1) * v)) }); };
 

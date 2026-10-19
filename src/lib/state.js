@@ -3,34 +3,54 @@ import { uid, dk, addDays, sod, initials } from './utils.js';
 import { receive, act } from './intake.js';
 
 export const TIPS = [
-  'Batch your replies into windows. Students adapt quickly to a predictable rhythm.',
+  'Batch your replies into windows. Families adapt quickly to a predictable rhythm.',
   'A 5-minute walk between lessons resets your focus more than scrolling does.',
   'Write tomorrow’s top three tasks before you close the laptop.',
   '“I’ll reply in my next window” is a complete, professional answer.',
   'Drink a glass of water before each lesson — your voice will thank you.',
   'Protect one evening a week with no screens at all.',
-  'Turn recurring questions into a short FAQ you can share.',
-  'Rest is part of the job. Tired teachers explain less clearly.',
+  'Turn recurring parent questions into a short FAQ you can share.',
+  'Rest is part of the job. A tired sensei explains less clearly.',
+  'Every learner has their own story. You don’t have to carry all of them at once.',
 ];
 
 export const SHUT = [
   ['msgs', 'All important messages replied to or queued'],
-  ['plan', 'Tomorrow’s lesson plan ready'],
-  ['admin', 'Administrative tasks updated'],
+  ['plan', 'Tomorrow’s lesson materials ready'],
+  ['admin', 'Invoices and notes updated'],
   ['auto', 'Automatic replies configured'],
   ['quiet', 'Family time or quiet hours activated'],
 ];
 
+// Mika's course catalogue (HIPPOCAMPUS). Durations and fees in SGD mirror her
+// published 1-on-1 / online lesson fees. `track` groups non-native vs native.
+export const COURSES = [
+  // Courses for non-native learners
+  { id: 'children', name: 'Japanese for Children', track: 'Non-native', mins: 45, fee: 55, desc: 'A fun, beginner-friendly first step into Japanese for young learners.' },
+  { id: 'everyday', name: 'Everyday Japanese', track: 'Non-native', mins: 60, fee: 75, desc: 'Practical Japanese for travel, daily life and real conversations.' },
+  { id: 'business', name: 'Japanese for Business & JLPT', track: 'Non-native', mins: 70, fee: 90, desc: 'Workplace Japanese and JLPT N5–N1 exam preparation.' },
+  // Courses for native / heritage learners
+  { id: 'preschool', name: 'Japanese as a First Language (Preschool)', track: 'Native', mins: 45, fee: 55, desc: 'Building blocks of reading, writing and expression through play.' },
+  { id: 'primary', name: 'Primary First Language · Returnee · Pre-IB', track: 'Native', mins: 60, fee: 75, desc: 'Grade-level kokugo for Y3–Y8: first language, returnee prep, Pre-IB foundation.' },
+  { id: 'secondary', name: 'Secondary First Language · Returnee · Pre-IB', track: 'Native', mins: 70, fee: 85, desc: 'Y9–Y11 kokugo: first language, returnee prep, Pre-IB practice.' },
+  { id: 'ibdp', name: 'IBDP Japanese A / B', track: 'Native', mins: 80, fee: 120, desc: 'Exam support for Paper 1, Paper 2 and the Individual Oral.' },
+];
+
+export const COURSE_BY_ID = Object.fromEntries(COURSES.map((c) => [c.id, c]));
+
 export function defaults() {
   const day = (on, s = '09:00', e = '17:00') => ({ on, s, e });
   return {
-    name: 'Mika', subject: 'Japanese Language Teacher',
-    days: [day(false, '10:00', '14:00'), day(true), day(true), day(true), day(true), day(true), day(true, '10:00', '14:00')],
-    windows: [{ s: '09:00', e: '11:00' }, { s: '18:00', e: '19:00' }],
-    family: { on: true, s: '19:00', e: '21:00', silence: true }, quiet: { on: true, s: '21:00', e: '08:00' },
+    name: 'Mika', subject: 'HIPPOCAMPUS · Japanese Language Educator',
+    // Teaching Tue–Sat (common for after-school / family lessons in Singapore);
+    // Sunday off, Monday a shorter day.
+    days: [day(false, '10:00', '14:00'), day(true, '10:00', '15:00'), day(true), day(true), day(true), day(true), day(true, '09:30', '15:00')],
+    windows: [{ s: '09:00', e: '10:00' }, { s: '17:00', e: '18:00' }],
+    family: { on: true, s: '18:30', e: '20:30', silence: true }, quiet: { on: true, s: '21:00', e: '08:00' },
     auto: true,
-    tpl: "Hi! Thanks for your message. I'm currently offline and will reply {next}. For urgent matters, please write 'Urgent' in your message. – {name}",
-    urgent: 'hold', notif: true, quietAfterShutdown: true, show: { days: true, windows: true, resp: true }, typical: 'Within 24 hours during working hours',
+    tpl: "Thank you for your message! I'm with a learner or away from my desk right now, and I'll reply {next}. If it's urgent, please include the word 'Urgent'. Warm regards, {name} (HIPPOCAMPUS)",
+    urgent: 'hold', notif: true, quietAfterShutdown: true, show: { days: true, windows: true, resp: true },
+    typical: 'Within one working day',
   };
 }
 
@@ -38,28 +58,33 @@ export function seed() {
   const S = {
     v: 1, onboarded: false, settings: defaults(), includeDemo: true, tip: new Date().getDate() % TIPS.length,
     students: [
-      { id: 'yuki', name: 'Yuki Tanaka', course: 'JLPT N4 prep', active: true, demo: true },
-      { id: 'kenji', name: 'Kenji Sato', course: 'Conversation', active: true, demo: true },
-      { id: 'aoi', name: 'Aoi Nakamura', course: 'Prospective student', active: false, isNew: true, demo: true },
-      { id: 'hana', name: 'Hana Suzuki', course: 'JLPT N3 prep', active: true, demo: true },
+      // A mix across Mika's real course types. For young children the contact is a parent.
+      { id: 'sora', name: 'Sora (Tanaka family)', course: 'Japanese for Children', courseId: 'children', contact: 'parent', active: true, demo: true },
+      { id: 'emma', name: 'Emma Lim', course: 'Everyday Japanese', courseId: 'everyday', active: true, demo: true },
+      { id: 'raj', name: 'Rajesh Menon', course: 'Business & JLPT N3', courseId: 'business', active: true, demo: true },
+      { id: 'hina', name: 'Hina (Yamamoto family)', course: 'First Language · Primary Y5', courseId: 'primary', contact: 'parent', active: true, demo: true },
+      { id: 'kenta', name: 'Kenta Watanabe', course: 'Returnee prep · Secondary Y9', courseId: 'secondary', active: true, demo: true },
+      { id: 'aiko', name: 'Aiko Chua', course: 'IBDP Japanese A: Literature', courseId: 'ibdp', active: true, demo: true },
+      { id: 'olivia', name: 'Olivia Tan', course: 'Prospective student', courseId: 'everyday', isNew: true, active: false, demo: true },
     ],
     messages: [], lessons: [], acts: [], tasks: {}, shutdowns: {},
     family: { active: false, manual: false, start: null, endedOn: null }, offlineUntil: null, rm: { active: false, start: null, done: [], skip: [] },
   };
   const now = Date.now(), H = 36e5, t = dk(new Date()), t1 = dk(addDays(new Date(), 1)), t2 = dk(addDays(new Date(), 2));
   S.lessons = [
-    { id: uid(), sid: 'yuki', subject: 'JLPT N4 grammar', date: t, s: '11:30', e: '12:30', notes: 'Te-form review', demo: true },
-    { id: uid(), sid: 'kenji', subject: 'Conversation practice', date: t, s: '14:00', e: '15:00', notes: '', demo: true },
-    { id: uid(), sid: 'hana', subject: 'JLPT N3 mock exam', date: t1, s: '15:30', e: '16:30', notes: 'Bring listening section', demo: true },
-    { id: uid(), sid: 'aoi', subject: 'Trial lesson', date: t2, s: '13:00', e: '13:30', notes: 'New student intro', demo: true },
+    { id: uid(), sid: 'sora', subject: 'Japanese for Children — hiragana & greetings', date: t, s: '10:00', e: '10:45', notes: 'Shiritori warm-up; review あ-row', demo: true },
+    { id: uid(), sid: 'hina', subject: 'First Language — 読解 (reading comprehension)', date: t, s: '14:00', e: '15:00', notes: 'Mitsumura Y5 unit; kanji quiz', demo: true },
+    { id: uid(), sid: 'aiko', subject: 'IBDP Lit — Paper 1 unseen analysis', date: t1, s: '15:30', e: '16:50', notes: 'Prose extract; timed practice', demo: true },
+    { id: uid(), sid: 'raj', subject: 'Business & JLPT N3 — keigo role-play', date: t1, s: '12:00', e: '13:10', notes: 'Client phone-call scenarios', demo: true },
+    { id: uid(), sid: 'olivia', subject: 'Trial lesson — Everyday Japanese', date: t2, s: '11:00', e: '11:30', notes: 'New enquiry: travel to Japan in spring', demo: true },
   ];
   const noop = { save: () => {}, toast: () => {} };
   const o = { quiet: true, demo: true };
-  receive(S, noop, 'aoi', "Hello! I'm interested in starting Japanese lessons. Do you offer a trial lesson, and what are your rates?", new Date(now - 26 * H), o);
-  receive(S, noop, 'yuki', "Hi Mika-sensei, I'm stuck on question 4 of the homework. When do I use に vs で for locations?", new Date(now - 14 * H), o);
-  receive(S, noop, 'kenji', "Could we reschedule Thursday's lesson to Friday at the same time? Something came up at work.", new Date(now - 5 * H), o);
-  receive(S, noop, 'hana', "Urgent: my JLPT exam is this weekend and I'm confused about the listening section format. Could you help?", new Date(now - 3 * H), o);
-  S.messages.find((m) => m.sid === 'aoi').read = true;
+  receive(S, noop, 'olivia', "Hello! My husband and I are planning a trip to Japan next spring and would love to start Everyday Japanese lessons. Do you offer a trial lesson, and what are your rates?", new Date(now - 26 * H), o);
+  receive(S, noop, 'sora', "Hi Mika-sensei! Sora really enjoyed last week. He's been practising hiragana at home — could you share which app you recommended? (This is Sora's mum, Yuki.)", new Date(now - 15 * H), o);
+  receive(S, noop, 'raj', "Could we move this week's lesson to Friday at the same time? A work trip came up. Also, I registered for JLPT N3 in December!", new Date(now - 6 * H), o);
+  receive(S, noop, 'aiko', "Urgent: my IB Paper 1 mock is this Friday and I'm stuck on how to structure the analysis of an unseen prose extract. Could we go over it before then?", new Date(now - 3 * H), o);
+  S.messages.find((m) => m.sid === 'olivia').read = true;
   // labelled demo history: earlier week busier after hours, so insights have something to compare
   for (let i = 1; i <= 13; i++) {
     const d = sod(addDays(new Date(), -i)), k = i > 6 ? 2 : 1;

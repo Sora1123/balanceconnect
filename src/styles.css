@@ -196,6 +196,9 @@ nav.tb button.on svg{transform:translateY(-1px)}
 nav.tb svg{width:23px;height:23px;transition:transform .15s}
 nav.tb .bd{position:absolute;top:0;right:6px;background:var(--rose);color:#fff;border-radius:99px;font:700 10px var(--fb);padding:0 5px}
 @media (min-width:900px){nav.tb{display:none}}
+/* While a dialog/sheet is open, hide the bottom tab bar so it can't overlap
+   the sheet's actions on small screens. */
+body.dialog-open nav.tb{display:none}
 
 /* ===== Banner ===== */
 .banner{background:linear-gradient(135deg,var(--peach-s),#f8ddc8);border:1px solid color-mix(in srgb,var(--peach) 25%,transparent);
@@ -235,14 +238,19 @@ nav.tb .bd{position:absolute;top:0;right:6px;background:var(--rose);color:#fff;b
 .blk .tm{font:700 12px var(--fb);width:74px;flex:none;font-variant-numeric:tabular-nums;color:var(--ink-2)}
 
 /* ===== Sheets / modals ===== */
-.sheet{position:fixed;inset:0;background:rgba(30,25,45,.5);backdrop-filter:blur(2px);display:flex;align-items:flex-end;justify-content:center;z-index:20;animation:fade .2s ease both}
+.sheet{position:fixed;top:0;left:0;right:0;bottom:0;height:100vh;height:100dvh;background:rgba(30,25,45,.5);backdrop-filter:blur(2px);display:flex;align-items:flex-end;justify-content:center;z-index:40;animation:fade .2s ease both;padding-top:max(24px,env(safe-area-inset-top,0px))}
 .sheet>div{background:var(--card);width:100%;max-width:var(--app-w);border-radius:var(--r-xl) var(--r-xl) 0 0;
   padding:22px max(18px,env(safe-area-inset-right,0px)) calc(22px + env(safe-area-inset-bottom,0px)) max(18px,env(safe-area-inset-left,0px));
-  display:flex;flex-direction:column;gap:13px;max-height:88vh;overflow:auto;box-shadow:var(--shadow-lg);animation:rise .28s cubic-bezier(.2,.8,.2,1) both}
+  display:flex;flex-direction:column;gap:13px;max-height:100%;overflow-y:auto;-webkit-overflow-scrolling:touch;
+  box-shadow:var(--shadow-lg);animation:rise .28s cubic-bezier(.2,.8,.2,1) both}
+/* Pin the action row to the bottom of the sheet so Save/Cancel are always
+   reachable even when the form is taller than the screen. */
+.sheet>div>.row:last-child{position:sticky;bottom:calc(-22px - env(safe-area-inset-bottom,0px));
+  background:var(--card);padding-top:12px;margin-top:2px;box-shadow:0 -8px 12px -8px rgba(0,0,0,.12)}
 @keyframes rise{from{transform:translateY(16px);opacity:.6}to{transform:none;opacity:1}}
 @media (min-width:700px){
   .sheet{align-items:center}
-  .sheet>div{border-radius:var(--r-xl);max-width:580px}
+  .sheet>div{border-radius:var(--r-xl);max-width:580px;max-height:88vh}
 }
 
 /* ===== Toast ===== */
