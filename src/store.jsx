@@ -29,10 +29,44 @@ export function StoreProvider({ children }) {
       Sref.current.onboarded = true;
       saveState(Sref.current);
     }
+    applyTheme(Sref.current.theme);
     setRoute({ name: 'home' });
     setMounted(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Track real time spent in BalanceConnect (per local day) so the Home usage
+  // widget has at least one genuine number. Accrues in ~15s ticks while the tab
+  // is visible; persists to S.usage[dateKey].bc (minutes).
+  useEffect(() => {
+    let last = Date.now();
+    const STEP = 15000;
+    function accrue() {
+      const now = Date.now();
+      if (document.visibilityState === 'visible') {
+        const mins = Math.min(2, (now - last) / 60000); // guard against long gaps
+        const S = Sref.current;
+        const key = dkLocal(new Date());
+        S.usage = S.usage || {};
+        S.usage[key] = S.usage[key] || {};
+        S.usage[key].bc = (S.usage[key].bc || 0) + mins;
+        saveState(S);
+      }
+      last = now;
+    }
+    const id = setInterval(accrue, STEP);
+    const onHide = () => { if (document.visibilityState === 'hidden') accrue(); };
+    document.addEventListener('visibilitychange', onHide);
+    return () => { clearInterval(id); document.removeEventListener('visibilitychange', onHide); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const setTheme = useCallback((theme) => {
+    Sref.current.theme = theme;
+    applyTheme(theme);
+    saveState(Sref.current);
+    rerender();
+  }, [rerender]);
 
   const saveFailed = useRef(false);
   const warnIfSaveFailed = useCallback((ok) => {
@@ -81,17 +115,21 @@ export function StoreProvider({ children }) {
   // Confirm modal
   const [confirmState, setConfirmState] = useState(null);
   const confirmBox = useCallback((title, body, okLabel, cb, opts = {}) => {
-    setConfirmState({ title, body, okLabel, cb, danger: !!opts.danger });
+    setConfirmState({ title, body, okLabel, cb, danger: !!opts.danger, secondary: opts.secondary || null });
   }, []);
   const closeConfirm = useCallback((run) => {
     setConfirmState((c) => { if (run && c && c.cb) c.cb(); return null; });
+  }, []);
+  const runConfirmSecondary = useCallback(() => {
+    setConfirmState((c) => { if (c && c.secondary && c.secondary.onClick) c.secondary.onClick(); return null; });
   }, []);
 
   const value = {
     S: Sref.current, mutate, save, rerender,
     toast, toastMsg, dismissToast,
     route, go, patchRoute, setRoute,
-    confirmBox, confirmState, closeConfirm,
+    confirmBox, confirmState, closeConfirm, runConfirmSecondary,
+    theme: Sref.current.theme, setTheme,
     stuName: (id) => stuNameFn(Sref.current, id),
     stu: (id) => stuFn(Sref.current, id),
     avColor: (id) => avColorFn(Sref.current, id),
@@ -137,4 +175,13 @@ function dkLocal(d) {
   const pad = (n) => String(n).padStart(2, '0');
   d = new Date(d);
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+// Apply the theme preference to <html>. 'system' removes the override so the
+// OS prefers-color-scheme takes over; 'light'/'dark' force that theme.
+function applyTheme(theme) {
+  if (typeof document === 'undefined') return;
+  const el = document.documentElement;
+  if (theme === 'light' || theme === 'dark') el.setAttribute('data-theme', theme);
+  else el.removeAttribute('data-theme');
 }

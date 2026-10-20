@@ -34,12 +34,12 @@ export default function ResponseMode() {
     const inWin = w && Avail.windowTime(now, st);
     return (
       <>
-        <Head title="Response Window" />
+        <Head title="Working mode" />
         <section className="card">
-          <h3>{inWin ? `You’re in your ${fmtT(w.s)}–${fmtT(w.e)} window` : 'No window is active right now'}</h3>
-          <p className="sm">{inWin ? 'Work through your queue in priority order. Progress updates as you reply.' : `Your next window starts ${nx ? Avail.describe(nx) : 'once you set one in Settings'}. You can still start a session now.`}</p>
+          <h3>{inWin ? `You’re in your ${fmtT(w.s)}–${fmtT(w.e)} reply window` : 'Start a focused work session'}</h3>
+          <p className="sm">{inWin ? 'Work through your queue in priority order — reply, reschedule, or flag for follow-up. Progress updates as you go.' : `Your next reply window starts ${nx ? Avail.describe(nx) : 'once you set one in Settings'}. You can still start a session now.`}</p>
           <p className="mut">{q.length} message{q.length === 1 ? '' : 's'} waiting.</p>
-          <button className="btn sage full" onClick={rmStart}>Start response session</button>
+          <button className="btn sage full" onClick={rmStart}>Start working session</button>
         </section>
       </>
     );
@@ -47,7 +47,7 @@ export default function ResponseMode() {
 
   return (
     <>
-      <Head title="Response Window" />
+      <Head title="Working mode" />
       <section className="card">
         <div className="row sp"><b>{w ? `${fmtT(w.s)} – ${fmtT(w.e)}` : 'Manual session'}</b><span className="mut">Started {fmtD(rm.start)}</span></div>
         <div className="bar"><i style={{ width: pct(done, total) + '%' }} /></div>
@@ -82,7 +82,7 @@ export default function ResponseMode() {
       </section>
       <div className="row">
         <button className="btn grow" onClick={rmNext} disabled={!q.length}>Process next</button>
-        <button className="btn ghost grow" onClick={rmExit}>Exit response mode</button>
+        <button className="btn ghost grow" onClick={rmExit}>Exit working mode</button>
       </div>
     </>
   );

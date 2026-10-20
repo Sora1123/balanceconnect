@@ -54,7 +54,7 @@ export default function Inbox() {
 
   return (
     <>
-      <div className="row sp"><h2>Messages</h2><button className="btn sm sage" onClick={() => go('rm')}>Response mode</button></div>
+      <div className="row sp"><h2>Messages</h2><button className="btn sm sage" onClick={() => go('rm')}>Working mode</button></div>
       <input
         type="search"
         placeholder="Search students or messages"

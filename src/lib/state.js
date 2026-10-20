@@ -56,7 +56,7 @@ export function defaults() {
 
 export function seed() {
   const S = {
-    v: 1, onboarded: false, settings: defaults(), includeDemo: true, tip: new Date().getDate() % TIPS.length,
+    v: 1, onboarded: false, theme: 'system', settings: defaults(), includeDemo: true, tip: new Date().getDate() % TIPS.length,
     students: [
       // A mix across Mika's real course types. For young children the contact is a parent.
       { id: 'sora', name: 'Sora (Tanaka family)', course: 'Japanese for Children', courseId: 'children', contact: 'parent', active: true, demo: true },
@@ -67,24 +67,36 @@ export function seed() {
       { id: 'aiko', name: 'Aiko Chua', course: 'IBDP Japanese A: Literature', courseId: 'ibdp', active: true, demo: true },
       { id: 'olivia', name: 'Olivia Tan', course: 'Prospective student', courseId: 'everyday', isNew: true, active: false, demo: true },
     ],
-    messages: [], lessons: [], acts: [], tasks: {}, shutdowns: {},
+    messages: [], lessons: [], acts: [], tasks: {}, shutdowns: {}, usage: {},
     family: { active: false, manual: false, start: null, endedOn: null }, offlineUntil: null, rm: { active: false, start: null, done: [], skip: [] },
   };
-  const now = Date.now(), H = 36e5, t = dk(new Date()), t1 = dk(addDays(new Date(), 1)), t2 = dk(addDays(new Date(), 2));
+  const now = Date.now(), H = 36e5, today = new Date(), t = dk(today);
+  // A realistic full teaching day for Mika. Most lessons recur on a fixed cadence
+  // (weekly or biweekly), which is how regular students are usually scheduled.
+  // `repeat`: 'none' | 'weekly' | 'biweekly'; `anchor` is the first occurrence
+  // date so biweekly parity is stable even as the week scrolls.
+  const lesson = (sid, subject, s, e, notes, repeat) => ({
+    id: uid(), sid, subject, date: t, s, e, notes: notes || '',
+    repeat: repeat || 'none', anchor: t, seriesId: uid(), demo: true,
+  });
   S.lessons = [
-    { id: uid(), sid: 'sora', subject: 'Japanese for Children — hiragana & greetings', date: t, s: '10:00', e: '10:45', notes: 'Shiritori warm-up; review あ-row', demo: true },
-    { id: uid(), sid: 'hina', subject: 'First Language — 読解 (reading comprehension)', date: t, s: '14:00', e: '15:00', notes: 'Mitsumura Y5 unit; kanji quiz', demo: true },
-    { id: uid(), sid: 'aiko', subject: 'IBDP Lit — Paper 1 unseen analysis', date: t1, s: '15:30', e: '16:50', notes: 'Prose extract; timed practice', demo: true },
-    { id: uid(), sid: 'raj', subject: 'Business & JLPT N3 — keigo role-play', date: t1, s: '12:00', e: '13:10', notes: 'Client phone-call scenarios', demo: true },
-    { id: uid(), sid: 'olivia', subject: 'Trial lesson — Everyday Japanese', date: t2, s: '11:00', e: '11:30', notes: 'New enquiry: travel to Japan in spring', demo: true },
+    lesson('sora', 'Japanese for Children — hiragana & greetings', '09:30', '10:15', 'Shiritori warm-up; review あ-row', 'weekly'),
+    lesson('hina', 'First Language — 読解 (reading comprehension)', '10:30', '11:30', 'Mitsumura Y5 unit; kanji quiz', 'weekly'),
+    lesson('emma', 'Everyday Japanese — ordering at a restaurant', '12:00', '13:00', 'Role-play; menu vocabulary', 'biweekly'),
+    lesson('raj', 'Business & JLPT N3 — keigo role-play', '13:30', '14:40', 'Client phone-call scenarios', 'weekly'),
+    lesson('kenta', 'Returnee prep — 作文 (essay writing)', '15:00', '16:10', 'Structure & interview practice', 'weekly'),
+    lesson('aiko', 'IBDP Lit — Paper 1 unseen analysis', '16:30', '17:50', 'Prose extract; timed practice', 'weekly'),
   ];
   const noop = { save: () => {}, toast: () => {} };
   const o = { quiet: true, demo: true };
-  receive(S, noop, 'olivia', "Hello! My husband and I are planning a trip to Japan next spring and would love to start Everyday Japanese lessons. Do you offer a trial lesson, and what are your rates?", new Date(now - 26 * H), o);
+  receive(S, noop, 'olivia', "Hello! My husband and I are planning a trip to Japan next spring and would love to start Everyday Japanese lessons. Do you offer a trial lesson?", new Date(now - 26 * H), o);
   receive(S, noop, 'sora', "Hi Mika-sensei! Sora really enjoyed last week. He's been practising hiragana at home — could you share which app you recommended? (This is Sora's mum, Yuki.)", new Date(now - 15 * H), o);
-  receive(S, noop, 'raj', "Could we move this week's lesson to Friday at the same time? A work trip came up. Also, I registered for JLPT N3 in December!", new Date(now - 6 * H), o);
+  receive(S, noop, 'raj', "Could we move next week's lesson to Friday at the same time? A work trip came up. Also, I registered for JLPT N3 in December!", new Date(now - 6 * H), o);
   receive(S, noop, 'aiko', "Urgent: my IB Paper 1 mock is this Friday and I'm stuck on how to structure the analysis of an unseen prose extract. Could we go over it before then?", new Date(now - 3 * H), o);
   S.messages.find((m) => m.sid === 'olivia').read = true;
+  // Seed today's app usage so the Home usage card shows a believable day.
+  // (External apps are illustrative demo data; BalanceConnect time is tracked for real.)
+  S.usage[t] = { bc: 18, gdocs: 42, gclass: 25, gmail: 16, demo: true };
   // labelled demo history: earlier week busier after hours, so insights have something to compare
   for (let i = 1; i <= 13; i++) {
     const d = sod(addDays(new Date(), -i)), k = i > 6 ? 2 : 1;
@@ -137,6 +149,7 @@ function sanitizeState(S) {
   return {
     v: 1,
     onboarded: !!S.onboarded,
+    theme: ['system', 'light', 'dark'].includes(S.theme) ? S.theme : 'system',
     settings: sanitizeSettings(S.settings),
     includeDemo: typeof S.includeDemo === 'boolean' ? S.includeDemo : true,
     tip: Number.isFinite(S.tip) ? S.tip : 0,
@@ -146,6 +159,7 @@ function sanitizeState(S) {
     acts: arr(S.acts).filter((a) => a && typeof a.type === 'string' && Number.isFinite(a.at)),
     tasks: obj(S.tasks),
     shutdowns: obj(S.shutdowns),
+    usage: obj(S.usage),
     family: { active: false, manual: false, start: null, endedOn: null, ...obj(S.family) },
     offlineUntil: Number.isFinite(S.offlineUntil) ? S.offlineUntil : null,
     rm: { active: false, start: null, done: [], skip: [], ...obj(S.rm) },

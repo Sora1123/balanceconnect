@@ -80,12 +80,15 @@ export function Toast() {
 }
 
 export function ConfirmModal() {
-  const { confirmState, closeConfirm } = useStore();
+  const { confirmState, closeConfirm, runConfirmSecondary } = useStore();
   if (!confirmState) return null;
-  const { title, body, okLabel, danger } = confirmState;
+  const { title, body, okLabel, danger, secondary } = confirmState;
   return (
     <Dialog title={title} onClose={() => closeConfirm(false)} describedById="confirm-desc">
       <p className="sm" id="confirm-desc">{body}</p>
+      {secondary && (
+        <button className="btn ghost full" onClick={runConfirmSecondary}>{secondary.label}</button>
+      )}
       <div className="row">
         <button className="btn ghost grow" onClick={() => closeConfirm(false)}>Cancel</button>
         <button className={`btn grow ${danger ? 'danger' : ''}`} onClick={() => closeConfirm(true)}>{okLabel}</button>

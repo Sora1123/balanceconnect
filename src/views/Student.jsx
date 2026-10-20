@@ -25,8 +25,8 @@ export default function Student() {
       </section>
 
       <section className="card">
-        <h3>Lessons &amp; fees</h3>
-        <p className="mut">1-on-1, online. Prices in Singapore dollars.</p>
+        <h3>Lessons</h3>
+        <p className="mut">1-on-1, online.</p>
         {tracks.map((track) => (
           <div key={track}>
             <p className="sm" style={{ marginTop: 6, fontWeight: 700 }}>{track === 'Non-native' ? 'For new learners of Japanese' : 'For native & heritage learners'}</p>
@@ -36,10 +36,7 @@ export default function Student() {
                   <b className="sm">{c.name}</b>
                   <p className="mut">{c.desc}</p>
                 </div>
-                <div style={{ textAlign: 'right', flex: 'none' }}>
-                  <b className="sm" style={{ display: 'block' }}>${c.fee}</b>
-                  <span className="mut">{c.mins} min</span>
-                </div>
+                <span className="mut" style={{ flex: 'none' }}>{c.mins} min</span>
               </div>
             ))}
           </div>

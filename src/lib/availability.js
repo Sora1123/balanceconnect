@@ -33,7 +33,7 @@ export function statusNow(S) {
   if (S.family.active) return ['family', 'Family Time'];
   if (S.offlineUntil && +d < S.offlineUntil) return ['offline', 'Done for today'];
   if (Avail.inQuiet(d, st)) return ['quiet', 'Quiet hours'];
-  if (Avail.windowTime(d, st)) return ['window', 'Response window'];
+  if (Avail.windowTime(d, st)) return ['window', 'Reply window'];
   if (Avail.working(d, st)) return ['working', 'Working hours'];
   return ['off', 'Off work'];
 }

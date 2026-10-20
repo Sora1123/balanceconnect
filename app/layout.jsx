@@ -1,17 +1,18 @@
-import { Nunito, Figtree } from 'next/font/google';
+import { Viga, Nunito } from 'next/font/google';
 import '../src/styles.css';
 
 // Self-hosted at build time (no render-blocking external request, better privacy
 // and performance). Exposed as CSS variables consumed by styles.css.
-const nunito = Nunito({
+// Viga = display / headings (single weight 400). Nunito = body text.
+const viga = Viga({
   subsets: ['latin'],
-  weight: ['600', '700', '800'],
+  weight: ['400'],
   variable: '--font-display',
   display: 'swap',
 });
-const figtree = Figtree({
+const nunito = Nunito({
   subsets: ['latin'],
-  weight: ['400', '500', '600'],
+  weight: ['400', '500', '600', '700', '800'],
   variable: '--font-body',
   display: 'swap',
 });
@@ -25,12 +26,12 @@ export const viewport = {
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
-  themeColor: '#7A62C4',
+  themeColor: '#5F58A6',
 };
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en" className={`${nunito.variable} ${figtree.variable}`}>
+    <html lang="en" className={`${viga.variable} ${nunito.variable}`}>
       <body>{children}</body>
     </html>
   );

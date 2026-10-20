@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useStore, useTick } from './store.jsx';
 import { Toast, ConfirmModal, NavIcon, ICON } from './components/ui.jsx';
 import { statusNow } from './lib/availability.js';
@@ -40,6 +40,13 @@ export default function App() {
   const showFamilyBanner = S.family.active && name !== 'family';
   const showNav = name !== 'onboard';
   const [sk, sl] = statusNow(S);
+
+  // Reflect the current availability state on <html> so the ambient background
+  // tint can shift with the time of day (working / reply window / family / quiet).
+  useEffect(() => {
+    document.documentElement.setAttribute('data-state', sk);
+    return () => { document.documentElement.removeAttribute('data-state'); };
+  }, [sk]);
 
   const NavButton = ({ k, l }) => (
     <button
@@ -114,7 +121,7 @@ export default function App() {
 
 function viewLabel(name) {
   const labels = {
-    home: 'Home', inbox: 'Messages', msg: 'Message', rm: 'Response window', family: 'Family Time',
+    home: 'Home', inbox: 'Messages', msg: 'Message', rm: 'Working mode', family: 'Family Time',
     shutdown: 'End of day', schedule: 'Schedule', analytics: 'Well-being analytics', student: 'Student view',
     more: 'More', data: 'Data management', about: 'About', sim: 'Test scenarios', settings: 'Settings',
   };

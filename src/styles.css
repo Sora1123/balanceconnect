@@ -5,18 +5,24 @@
    ============================================================ */
 :root{
   /* palette */
-  --bg:#F6F1EA;--bg-2:#EFE8DD;
-  --card:#FFFFFF;--card-2:#FFFDFB;
-  --ink:#322E44;--ink-2:#4B4661;--muted:#857F97;--line:#ECE4D8;--line-2:#E3D9CB;
-  --pur:#7A62C4;--pur-600:#6B52B8;--pur-ink:#FFFFFF;--lav:#EFE9FB;--lav-2:#E4DBF7;
-  --sage:#5F9A74;--sage-s:#E2EFE6;
-  --peach:#DE8A57;--peach-s:#FBE8D8;
-  --rose:#C85663;--rose-s:#F8DEE1;
+  /* palette — light mode built from: #0e0d0d #f3f3f3 #fba4b5 #feeccd #aaa6d8 */
+  --bg:#F3F3F3;--bg-2:#EAE9EE;
+  --card:#FFFFFF;--card-2:#FBFBFD;
+  --ink:#0E0D0D;--ink-2:#39363F;--muted:#6E6A77;--line:#E4E3E9;--line-2:#D7D5E0;
+  /* primary = a darker shade of the lavender (#aaa6d8) so white button text stays legible;
+     the light lavender itself is used for tints/hover */
+  --pur:#5F58A6;--pur-600:#514B93;--pur-ink:#FFFFFF;--lav:#ECEBF7;--lav-2:#AAA6D8;
+  /* success/available — a calm green that harmonises with the set */
+  --sage:#4F8F6E;--sage-s:#E3EFE8;
+  /* warm accent = cream #feeccd */
+  --peach:#C98A3C;--peach-s:#FEECCD;
+  /* pink accent = #fba4b5 */
+  --rose:#D45873;--rose-s:#FDE3E8;
   /* elevation */
-  --shadow-sm:0 1px 2px rgba(50,40,80,.05), 0 1px 3px rgba(50,40,80,.04);
-  --shadow:0 2px 4px rgba(50,40,80,.05), 0 6px 20px rgba(80,60,130,.07);
-  --shadow-lg:0 8px 30px rgba(70,50,120,.14);
-  --ring:0 0 0 3px rgba(122,98,196,.28);
+  --shadow-sm:0 1px 2px rgba(20,18,30,.05), 0 1px 3px rgba(20,18,30,.04);
+  --shadow:0 2px 4px rgba(20,18,30,.05), 0 6px 20px rgba(60,55,110,.08);
+  --shadow-lg:0 8px 30px rgba(50,45,100,.15);
+  --ring:0 0 0 3px rgba(95,88,166,.32);
   /* typography */
   --fd:var(--font-display),"Nunito",ui-rounded,system-ui,sans-serif;
   --fb:var(--font-body),"Figtree",system-ui,-apple-system,sans-serif;
@@ -38,15 +44,30 @@
   --ring:0 0 0 3px rgba(167,149,228,.4);color-scheme:dark}
 
 *{box-sizing:border-box}
-html{-webkit-text-size-adjust:100%}
+html{-webkit-text-size-adjust:100%;--state-tint:transparent}
+/* Ambient tint reflects the current availability state (set on <html data-state>).
+   Soft, low-opacity washes so text stays readable; they shift as time passes. */
+html[data-state="working"]{--state-tint:color-mix(in srgb, var(--lav-2) 42%, transparent)}
+html[data-state="window"]{--state-tint:color-mix(in srgb, var(--sage) 26%, transparent)}
+html[data-state="family"]{--state-tint:color-mix(in srgb, var(--peach) 30%, transparent)}
+html[data-state="quiet"]{--state-tint:color-mix(in srgb, var(--pur) 22%, transparent)}
+html[data-state="offline"]{--state-tint:color-mix(in srgb, var(--pur) 22%, transparent)}
+html[data-state="off"]{--state-tint:transparent}
 body{
   margin:0;color:var(--ink);font:15px/1.55 var(--fb);
   background:
-    radial-gradient(1200px 600px at 100% -10%, var(--lav) 0%, transparent 55%),
-    radial-gradient(900px 500px at -10% 110%, var(--sage-s) 0%, transparent 50%),
+    radial-gradient(1200px 600px at 100% -10%, var(--lav-2) 0%, transparent 52%),
+    radial-gradient(760px 460px at -8% 108%, var(--peach-s) 0%, transparent 50%),
+    radial-gradient(640px 420px at 108% 112%, var(--rose-s) 0%, transparent 46%),
     linear-gradient(180deg, var(--bg) 0%, var(--bg-2) 100%);
   background-attachment:fixed;min-height:100vh;
   -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+}
+/* State wash: a fixed, behind-everything layer that fades between states. */
+body::before{
+  content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
+  background:radial-gradient(130% 90% at 50% 0%, var(--state-tint) 0%, transparent 60%);
+  transition:background 1.2s ease;
 }
 
 /* ===== App shell ===== */
@@ -310,5 +331,44 @@ nav.tb button{min-height:52px;min-width:56px;justify-content:center}
 .lnk{min-height:48px}
 input,select,textarea{min-height:44px}
 input[type=checkbox],input[type=radio]{min-height:0}
+
+/* ===== Today timeline (Home board) ===== */
+.timeline{list-style:none;margin:4px 0 0;padding:0;display:flex;flex-direction:column}
+.tl-item{display:grid;grid-template-columns:62px 18px 1fr;align-items:start;gap:8px;padding:4px 0;position:relative}
+.tl-item::before{content:"";position:absolute;left:70px;top:0;bottom:0;width:2px;background:var(--line);transform:translateX(-1px)}
+.tl-item:first-child::before{top:12px}
+.tl-item:last-child::before{bottom:calc(100% - 14px)}
+.tl-time{font:700 12px var(--fb);color:var(--ink-2);padding-top:2px;font-variant-numeric:tabular-nums;text-align:right}
+.tl-dot{width:12px;height:12px;border-radius:50%;background:var(--card);border:2px solid var(--line);margin-top:3px;z-index:1}
+.tl-now .tl-dot{border-color:var(--rose);background:var(--rose);box-shadow:0 0 0 4px var(--rose-s)}
+.tl-done .tl-dot{border-color:var(--sage);background:var(--sage)}
+.tl-upcoming .tl-dot{border-color:var(--pur)}
+.tl-body{display:flex;flex-direction:column;gap:2px;background:none;border:0;text-align:left;cursor:pointer;padding:2px 6px;border-radius:10px;color:inherit;font:inherit;width:100%}
+.tl-body:hover{background:var(--lav)}
+.tl-done .tl-body b{color:var(--muted)}
+.tl-now .tl-body{background:var(--rose-s)}
+
+/* ===== Segmented control (theme picker) ===== */
+.seg{display:flex;gap:6px;background:var(--bg-2);border:1px solid var(--line);border-radius:14px;padding:5px}
+.seg-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;background:none;border:0;border-radius:10px;
+  padding:10px 8px;font:700 13px var(--fb);color:var(--ink-2);cursor:pointer;min-height:56px;transition:background .15s,color .15s,box-shadow .15s}
+.seg-btn:hover{color:var(--ink)}
+.seg-btn.on{background:var(--card);color:var(--pur);box-shadow:var(--shadow-sm)}
+
+/* ===== Redesigned More menu rows ===== */
+.menu-row{display:flex;align-items:center;gap:13px;width:100%;background:none;border:0;cursor:pointer;
+  text-align:left;color:inherit;font:inherit;padding:12px 8px;border-radius:12px;min-height:60px;transition:background .14s}
+.menu-row:hover{background:var(--lav)}
+.menu-icon{width:40px;height:40px;flex:none;display:grid;place-items:center;font-size:20px;border-radius:11px;background:var(--lav)}
+.menu-label{display:block;font:600 15px var(--fb);color:var(--ink)}
+.menu-desc{display:block;font:400 13px var(--fb);color:var(--muted);margin-top:1px}
+
+/* ===== Analytics chart ===== */
+.chart-wrap{display:grid;grid-template-columns:28px 1fr;gap:6px;align-items:stretch;margin-top:6px}
+.chart-y{display:flex;flex-direction:column;justify-content:space-between;font:600 10px var(--fb);color:var(--muted);text-align:right;padding-bottom:2px}
+.split-bar{display:flex;height:20px;border-radius:999px;overflow:hidden;background:var(--bg-2);margin:6px 0 4px}
+.split-work{background:var(--pur)}
+.split-personal{background:var(--peach)}
+.split-bar span{transition:width .4s ease}
 
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;scroll-behavior:auto!important}}

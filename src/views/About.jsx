@@ -12,7 +12,7 @@ export default function About() {
         <p className="sm">A calm companion for Mika’s one-on-one Japanese teaching — helping protect
           time for family and rest while every learner’s message is looked after.</p>
         <p className="sm"><b>Works now:</b> availability that follows your teaching schedule, next-window
-          replies, automatic replies, message triage, response mode, Family Time, an end-of-day
+          replies, automatic replies, message triage, working mode, Family Time, an end-of-day
           routine, well-being analytics, and lesson scheduling with conflict checks.</p>
         <p className="sm"><b>Simulated:</b> student and family messages and automatic replies happen
           inside the app only. Nothing is sent by SMS, WhatsApp or email.</p>
