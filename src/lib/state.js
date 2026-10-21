@@ -97,16 +97,58 @@ export function seed() {
   // Seed today's app usage so the Home usage card shows a believable day.
   // (External apps are illustrative demo data; BalanceConnect time is tracked for real.)
   S.usage[t] = { bc: 18, gdocs: 42, gclass: 25, gmail: 16, demo: true };
-  // labelled demo history: earlier week busier after hours, so insights have something to compare
-  for (let i = 1; i <= 13; i++) {
-    const d = sod(addDays(new Date(), -i)), k = i > 6 ? 2 : 1;
-    for (let j = 0; j < 3; j++) {
-      const after = j < k; const at = +d + (after ? 22 : 10) * H + j * 6e5;
-      act(S, 'msg', at, { after, demo: true }); if (after) act(S, 'auto', at, { demo: true });
-      act(S, 'reply', at + (after ? 11 : 2) * H, { dur: after ? 660 : 120, ok: true, demo: true });
+  // A week of recent usage so stepping the demo day still shows a plausible card.
+  for (let i = 1; i <= 7; i++) {
+    const key = dk(addDays(new Date(), -i));
+    const dow = new Date(+sod(addDays(new Date(), -i))).getDay();
+    if (dow === 0) { S.usage[key] = { bc: 4, gdocs: 8, gclass: 3, gmail: 5, demo: true }; continue; }
+    S.usage[key] = {
+      bc: 10 + Math.round(Math.abs(Math.sin(i)) * 14),
+      gdocs: 30 + Math.round(Math.abs(Math.sin(i + 1)) * 30),
+      gclass: 15 + Math.round(Math.abs(Math.sin(i + 2)) * 20),
+      gmail: 10 + Math.round(Math.abs(Math.sin(i + 3)) * 15),
+      demo: true,
+    };
+  }
+
+  // ---- Rich, labelled demo history (~12 months) ----
+  // A realistic weekly rhythm with a gentle improving trend so week/month/year
+  // analytics all show meaningful values. Deterministic pseudo-random keeps the
+  // data stable within a run while looking organic.
+  const rnd = (seed) => { const x = Math.sin(seed * 12.9898) * 43758.5453; return x - Math.floor(x); };
+  const DAYS_BACK = 364;
+  for (let i = 1; i <= DAYS_BACK; i++) {
+    const d = sod(addDays(new Date(), -i));
+    const dow = new Date(+d).getDay(); // 0 Sun … 6 Sat
+    if (dow === 0) continue; // Sunday off — no teaching activity
+    // `progress` 0 (a year ago) → 1 (recent). Boundaries improve over time:
+    // after-hours share drops, Family Time and shutdowns become more consistent.
+    const progress = 1 - i / DAYS_BACK;
+    const weekend = dow === 6;
+    const baseMsgs = weekend ? 1 : 2;
+    const total = baseMsgs + Math.round(rnd(i) * (weekend ? 1 : 3)); // ~1–5 messages
+    // After-hours share: ~55% a year ago → ~18% recently (+ a little noise).
+    const afterShare = Math.max(0.1, 0.55 - 0.37 * progress + (rnd(i + 99) - 0.5) * 0.12);
+    let after = 0;
+    for (let j = 0; j < total; j++) {
+      const isAfter = rnd(i * 10 + j) < afterShare;
+      if (isAfter) after++;
+      const hour = isAfter ? 21 + Math.floor(rnd(i + j) * 3) : 9 + Math.floor(rnd(i + j) * 8);
+      const at = +d + hour * H + j * 7e5;
+      act(S, 'msg', at, { after: isAfter, demo: true });
+      if (isAfter) act(S, 'auto', at, { demo: true });
+      // Replies: faster over time (720 min → ~90 min for after-hours; windows quick).
+      const replyDelay = isAfter ? (720 - 540 * progress) : (100 + rnd(i + j) * 80);
+      act(S, 'reply', at + replyDelay * 6e4, { dur: replyDelay, ok: !isAfter || rnd(i + j) > 0.3, demo: true });
     }
-    if (i % 2 === 0 || i < 4) act(S, 'family', +d + 19 * H, { dur: i < 7 ? 120 : 60, demo: true });
-    if (i % 3 !== 0) act(S, 'shutdown', +d + 18 * H, { demo: true });
+    // Family Time most evenings, longer as habits improve (60 → ~140 min).
+    if (rnd(i + 7) < 0.55 + 0.35 * progress) {
+      act(S, 'family', +d + 19 * H, { dur: Math.round(60 + 80 * progress + rnd(i) * 20), demo: true });
+    }
+    // End-of-day routine, more consistent recently.
+    if (!weekend && rnd(i + 3) < 0.45 + 0.45 * progress) act(S, 'shutdown', +d + 18 * H, { demo: true });
+    // A couple of working sessions a week (counts toward "work" time).
+    if (!weekend && rnd(i + 5) < 0.4) act(S, 'session', +d + 13 * H, { dur: 30 + Math.round(rnd(i) * 40), demo: true });
   }
   return S;
 }

@@ -99,4 +99,25 @@ describe('analytics', () => {
     expect(out.length).toBe(7);
     expect(out.reduce((s, x) => s + x.in + x.af, 0)).toBeGreaterThanOrEqual(1);
   });
+
+  it('the demo seed fills week, month and year with meaningful activity', () => {
+    const S = seed();
+    for (const p of ['week', 'month', 'year']) {
+      const [a, b] = range(p);
+      const M = metrics(S, a, b);
+      // Enough activity to pass the view's "enough" gate (>=3) comfortably.
+      expect(M.n, `${p} activity count`).toBeGreaterThanOrEqual(3);
+      expect(M.msgs, `${p} messages`).toBeGreaterThan(0);
+    }
+  });
+
+  it('year buckets span 12 months and carry message data', () => {
+    const S = seed();
+    const [a, b] = range('year');
+    const M = metrics(S, a, b);
+    const out = buckets('year', a, b, M.A);
+    expect(out.length).toBe(12);
+    const totalCharted = out.reduce((s, x) => s + x.in + x.af, 0);
+    expect(totalCharted).toBeGreaterThan(0);
+  });
 });

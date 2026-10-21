@@ -17,6 +17,54 @@ function Kpi({ value, label, help }) {
   );
 }
 
+// Accessible SVG line graph with two series (in-window vs after-hours).
+// Uses a fixed viewBox and scales to the container width; y-axis gridlines and
+// labels, points on each data value, and x-axis labels underneath.
+function LineChart({ buckets, niceTop, period }) {
+  const W = 320, H = 150, padL = 24, padR = 8, padT = 10, padB = 20;
+  const n = buckets.length;
+  const innerW = W - padL - padR, innerH = H - padT - padB;
+  const x = (i) => padL + (n <= 1 ? innerW / 2 : (i / (n - 1)) * innerW);
+  const y = (v) => padT + innerH - (v / niceTop) * innerH;
+  const line = (key) => buckets.map((b, i) => `${x(i)},${y(b[key])}`).join(' ');
+  const gridVals = [0, Math.round(niceTop / 2), niceTop];
+
+  const labelEvery = Math.ceil(n / (period === 'year' ? 12 : 7));
+  const summary = `Messages by ${period === 'year' ? 'month' : 'day'}. ` +
+    buckets.map((b) => `${b.l || ''}: ${b.in + b.af}`).filter((s) => !s.startsWith(':')).join(', ');
+
+  return (
+    <figure className="linechart" role="img" aria-label={summary} style={{ margin: 0 }}>
+      <svg viewBox={`0 0 ${W} ${H}`} width="100%" preserveAspectRatio="none" style={{ display: 'block', height: 'auto' }}>
+        {/* y gridlines + labels */}
+        {gridVals.map((v, i) => (
+          <g key={i}>
+            <line x1={padL} x2={W - padR} y1={y(v)} y2={y(v)} stroke="var(--line)" strokeWidth="1" />
+            <text x={padL - 4} y={y(v) + 3} textAnchor="end" fontSize="8" fill="var(--muted)">{v}</text>
+          </g>
+        ))}
+        {/* after-hours series (amber) */}
+        <polyline points={line('af')} fill="none" stroke="var(--peach)" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+        {/* in-window series (green) */}
+        <polyline points={line('in')} fill="none" stroke="var(--sage)" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+        {/* points */}
+        {buckets.map((b, i) => (
+          <g key={i}>
+            <circle cx={x(i)} cy={y(b.af)} r="2.4" fill="var(--peach)" />
+            <circle cx={x(i)} cy={y(b.in)} r="2.4" fill="var(--sage)" />
+          </g>
+        ))}
+        {/* x labels */}
+        {buckets.map((b, i) => (
+          (i % labelEvery === 0 || i === n - 1) && b.l
+            ? <text key={i} x={x(i)} y={H - 6} textAnchor="middle" fontSize="8" fill="var(--muted)">{b.l}</text>
+            : null
+        ))}
+      </svg>
+    </figure>
+  );
+}
+
 export default function Analytics() {
   const { S, route, patchRoute, mutate } = useStore();
   const p = route.p || 'week';
@@ -72,25 +120,12 @@ export default function Analytics() {
 
           <section className="card">
             <h3>When messages arrived</h3>
-            <p className="mut">Taller bars mean more messages that {p === 'year' ? 'month' : 'day'}. Green = during your reply windows; amber = after hours.</p>
+            <p className="mut">Each point is the number of messages that {p === 'year' ? 'month' : 'day'}. Green = during your reply windows; amber = after hours.</p>
             <div className="row sm" style={{ gap: 14 }}>
-              <span className="row" style={{ gap: 6 }}><span style={{ width: 12, height: 12, background: 'var(--sage)', borderRadius: 3, display: 'inline-block' }} />In your windows</span>
-              <span className="row" style={{ gap: 6 }}><span style={{ width: 12, height: 12, background: 'var(--peach)', borderRadius: 3, display: 'inline-block' }} />After hours</span>
+              <span className="row" style={{ gap: 6 }}><span style={{ width: 14, height: 3, background: 'var(--sage)', borderRadius: 2, display: 'inline-block' }} />In your windows</span>
+              <span className="row" style={{ gap: 6 }}><span style={{ width: 14, height: 3, background: 'var(--peach)', borderRadius: 2, display: 'inline-block' }} />After hours</span>
             </div>
-            <div className="chart-wrap">
-              <div className="chart-y" aria-hidden="true">
-                <span>{niceTop}</span><span>{Math.round(niceTop / 2)}</span><span>0</span>
-              </div>
-              <div className="chart" role="img" aria-label={`Messages by ${p === 'year' ? 'month' : 'day'}: ${B.map((x) => `${x.l || ''} ${x.in + x.af}`).join(', ')}`}>
-                {B.map((x, i) => (
-                  <div key={i} className="col" title={`${x.in} in window, ${x.af} after hours`}>
-                    <i className="b" style={{ height: (x.af / niceTop) * 100 + '%' }} />
-                    <i className="a" style={{ height: (x.in / niceTop) * 100 + '%' }} />
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="xl" aria-hidden="true">{B.map((x, i) => <span key={i}>{x.l}</span>)}</div>
+            <LineChart buckets={B} niceTop={niceTop} period={p} />
           </section>
 
           <section className="card">
