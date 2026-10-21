@@ -4,6 +4,7 @@ import React, { createContext, useContext, useRef, useState, useCallback, useEff
 import { load, save as saveState, stuName as stuNameFn, stu as stuFn, avColor as avColorFn, seed } from './lib/state.js';
 import { Avail } from './lib/availability.js';
 import { startFamily as startFamilyFn, endFamily as endFamilyFn } from './lib/actions.js';
+import { installClock, setOffset, getOffset } from './lib/clock.js';
 
 const StoreCtx = createContext(null);
 
@@ -20,8 +21,11 @@ export function StoreProvider({ children }) {
   const [route, setRoute] = useState({ name: 'home' });
 
   useEffect(() => {
+    installClock();
     const hadStored = (() => { try { return !!localStorage.getItem('bc1'); } catch (e) { return false; } })();
     Sref.current = load();
+    // Restore any demo time offset so the chosen demo day survives a refresh.
+    setOffset(Sref.current.demoOffset || 0);
     if (!hadStored) {
       // First run: skip the forced setup screen. Land on the dashboard with the
       // demo data ready to explore; setup stays available under More → Working
@@ -64,6 +68,29 @@ export function StoreProvider({ children }) {
   const setTheme = useCallback((theme) => {
     Sref.current.theme = theme;
     applyTheme(theme);
+    saveState(Sref.current);
+    rerender();
+  }, [rerender]);
+
+  // Demo-only: pretend "now" is a chosen day. We shift the clock so the demo
+  // time equals the chosen date at the given hour (default: keep the current
+  // time-of-day). Offset is persisted so the chosen day survives a refresh.
+  const setDemoDay = useCallback((dateKey, atHour) => {
+    const realNow = new Date(Date.now() - getOffset()); // undo current offset → real now
+    const [y, mo, da] = dateKey.split('-').map(Number);
+    const target = new Date(realNow);
+    target.setFullYear(y, mo - 1, da);
+    if (typeof atHour === 'number') target.setHours(atHour, 0, 0, 0);
+    const off = +target - (+realNow);
+    setOffset(off);
+    Sref.current.demoOffset = off;
+    saveState(Sref.current);
+    rerender();
+  }, [rerender]);
+
+  const resetDemoDay = useCallback(() => {
+    setOffset(0);
+    Sref.current.demoOffset = 0;
     saveState(Sref.current);
     rerender();
   }, [rerender]);
@@ -130,6 +157,7 @@ export function StoreProvider({ children }) {
     route, go, patchRoute, setRoute,
     confirmBox, confirmState, closeConfirm, runConfirmSecondary,
     theme: Sref.current.theme, setTheme,
+    setDemoDay, resetDemoDay, demoOffset: Sref.current.demoOffset || 0,
     stuName: (id) => stuNameFn(Sref.current, id),
     stu: (id) => stuFn(Sref.current, id),
     avColor: (id) => avColorFn(Sref.current, id),

@@ -1,7 +1,7 @@
 import React from 'react';
 import { useStore } from '../store.jsx';
 import { Avatar, IllLaptop } from '../components/ui.jsx';
-import { dk, atDate, toMin, fmtT, dur } from '../lib/utils.js';
+import { dk, atDate, toMin, fmtT, dur, addDays } from '../lib/utils.js';
 import { statusNow, nextFromNow, Avail } from '../lib/availability.js';
 import { openMsgs } from '../lib/triage.js';
 import { lessonsOn, upcomingOccurrence } from '../lib/schedule.js';
@@ -18,7 +18,7 @@ const USAGE_APPS = [
 ];
 
 export default function Home() {
-  const { S, go, mutate, stuName } = useStore();
+  const { S, go, mutate, stuName, setDemoDay, resetDemoDay, demoOffset } = useStore();
   const now = new Date(), h = now.getHours(), st = S.settings;
   const nowMin = h * 60 + now.getMinutes();
   const todayKey = dk(now);
@@ -66,7 +66,30 @@ export default function Home() {
         <span className={`pill st-${sk}`}>{sl}</span>
       </header>
 
-      {/* ===== Today board — the day at a glance ===== */}
+      {/* ===== Demo day picker — lets you preview any day/time ===== */}
+      <section className="card demo-day" aria-label="Demo day">
+        <div className="row sp wrap" style={{ gap: 10 }}>
+          <div className="row" style={{ gap: 8 }}>
+            <span className="chip c-demo" style={{ textTransform: 'none' }}>Demo</span>
+            <label htmlFor="demo-date" className="sm" style={{ fontWeight: 600 }}>Preview day</label>
+            <input
+              id="demo-date"
+              type="date"
+              value={todayKey}
+              onChange={(e) => { if (e.target.value) setDemoDay(e.target.value); }}
+              style={{ width: 'auto' }}
+            />
+          </div>
+          <div className="row wrap" style={{ gap: 6 }}>
+            <button className="btn ghost sm" onClick={() => setDemoDay(dk(addDays(now, -1)))} aria-label="Previous day">← Day</button>
+            <button className="btn ghost sm" onClick={() => setDemoDay(dk(addDays(now, 1)))} aria-label="Next day">Day →</button>
+            {demoOffset !== 0 && <button className="btn ghost sm" onClick={resetDemoDay}>Back to today</button>}
+          </div>
+        </div>
+        {demoOffset !== 0 && (
+          <p className="mut">Previewing {now.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })} — availability, Family Time and the schedule all follow this day. This is a demo control only.</p>
+        )}
+      </section>
       <section className="card" aria-label="Today's schedule">
         <div className="row sp">
           <h3>Today’s schedule</h3>

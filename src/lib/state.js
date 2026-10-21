@@ -56,7 +56,7 @@ export function defaults() {
 
 export function seed() {
   const S = {
-    v: 1, onboarded: false, theme: 'system', settings: defaults(), includeDemo: true, tip: new Date().getDate() % TIPS.length,
+    v: 1, onboarded: false, theme: 'system', demoOffset: 0, settings: defaults(), includeDemo: true, tip: new Date().getDate() % TIPS.length,
     students: [
       // A mix across Mika's real course types. For young children the contact is a parent.
       { id: 'sora', name: 'Sora (Tanaka family)', course: 'Japanese for Children', courseId: 'children', contact: 'parent', active: true, demo: true },
@@ -150,6 +150,7 @@ function sanitizeState(S) {
     v: 1,
     onboarded: !!S.onboarded,
     theme: ['system', 'light', 'dark'].includes(S.theme) ? S.theme : 'system',
+    demoOffset: Number.isFinite(S.demoOffset) ? S.demoOffset : 0,
     settings: sanitizeSettings(S.settings),
     includeDemo: typeof S.includeDemo === 'boolean' ? S.includeDemo : true,
     tip: Number.isFinite(S.tip) ? S.tip : 0,
