@@ -16,20 +16,20 @@ function runScenario(S, save, stuName, n) {
   const free = (from, ok) => { let t = new Date(from); for (let i = 0; i < 288 * 7; i++) { if (ok(t)) return t; t = new Date(+t + 3e5); } return from; };
 
   switch (n) {
-    case 1: title = 'During a response window'; at = Avail.next(now, st) || now; sid = 'yuki'; text = 'Is the vocab quiz still on for our next lesson?'; break;
-    case 2: title = 'After working hours'; at = free(now, (t) => !Avail.working(t, st) && !Avail.windowTime(t, st) && !Avail.inFamily(t, st) && !Avail.inQuiet(t, st) && st.days[t.getDay()].on && minOf(t) > toMin(st.days[t.getDay()].s)); sid = 'kenji'; text = 'Quick question about the textbook chapter for next week.'; break;
-    case 3: title = 'During family time'; at = free(now, (t) => Avail.inFamily(t, st)); sid = 'yuki'; text = 'Thanks for today! I uploaded my writing practice.'; break;
-    case 4: title = 'Urgent, during quiet hours'; at = free(now, (t) => Avail.inQuiet(t, st)); sid = 'hana'; text = 'URGENT: my exam is tomorrow morning and I can’t find the registration slip info!'; break;
+    case 1: title = 'During a response window'; at = Avail.next(now, st) || now; sid = 'emma'; text = 'Is our working session still on this week?'; break;
+    case 2: title = 'After working hours'; at = free(now, (t) => !Avail.working(t, st) && !Avail.windowTime(t, st) && !Avail.inFamily(t, st) && !Avail.inQuiet(t, st) && st.days[t.getDay()].on && minOf(t) > toMin(st.days[t.getDay()].s)); sid = 'kenta'; text = 'Quick question about the latest deliverable for next week.'; break;
+    case 3: title = 'During family time'; at = free(now, (t) => Avail.inFamily(t, st)); sid = 'emma'; text = 'Thanks for today! I’ve uploaded the brand assets.'; break;
+    case 4: title = 'Urgent, during quiet hours'; at = free(now, (t) => Avail.inQuiet(t, st)); sid = 'aiko'; text = 'URGENT: our launch is tomorrow morning and the homepage still shows the old logo!'; break;
     case 5: {
       title = 'On a non-working day'; let d = null;
       for (let i = 0; i < 7; i++) { const x = addDays(now, i); if (!st.days[x.getDay()].on) { d = x; break; } }
       if (!d) return { title, info: 'Every day is a working day, so there is no non-working day to test.' };
-      at = atDate(dk(d), '12:00'); sid = 'aoi'; text = 'Hi, could I book a trial lesson next week?'; break;
+      at = atDate(dk(d), '12:00'); sid = 'olivia'; text = 'Hi, could we book an intro call next week?'; break;
     }
     case 6: {
       title = 'Just before the next window'; const nx = Avail.next(addDays(now, 0), st);
       at = nx ? new Date(+nx - 30 * 6e4) : now; if (Avail.windowTime(at, st)) at = new Date(+at - 60 * 6e4);
-      sid = 'kenji'; text = 'Can we move tomorrow’s lesson 30 minutes later?'; break;
+      sid = 'kenta'; text = 'Can we move tomorrow’s review 30 minutes later?'; break;
     }
     case 7: {
       const chk = {}; SHUT.forEach(([i]) => { chk[i] = true; });
@@ -67,7 +67,7 @@ export default function Sim() {
   const { S, mutate, save, toast, stuName } = useStore();
   const [log, setLog] = useState([]);
   const [tSid, setTSid] = useState(S.students[0]?.id);
-  const [tTxt, setTTxt] = useState('Hi sensei, quick question about today’s homework.');
+  const [tTxt, setTTxt] = useState('Hi Mika, quick question about today’s deliverable.');
   const [tAt, setTAt] = useState('');
 
   const scn = (i) => {
@@ -78,33 +78,33 @@ export default function Sim() {
 
   const tsend = () => {
     const t = tTxt.trim();
-    if (!t) { toast('Write a message first'); return; }
+    if (!t) { toast('Write an email first'); return; }
     const at = tAt ? new Date(tAt) : new Date();
     let r;
     mutate((S) => { r = receive(S, { save: () => save(), toast: () => {} }, tSid, t, at, { sim: true, quiet: !!tAt }); });
-    setLog((l) => [{ title: 'Custom test message', at: +at, status: r.m.status, auto: r.auto, note: r.note, next: r.next, urgent: r.m.urgent, who: stuName(r.m.sid) }, ...l]);
+    setLog((l) => [{ title: 'Custom test email', at: +at, status: r.m.status, auto: r.auto, note: r.note, next: r.next, urgent: r.m.urgent, who: stuName(r.m.sid) }, ...l]);
   };
 
   return (
     <>
       <Head title="Test scenarios" back="more" />
-      <p className="sm">Each button creates a simulated message at a time chosen from <b>your saved schedule</b>, then runs the same intake logic as real messages.</p>
+      <p className="sm">Each button creates a test email at a time chosen from <b>your saved schedule</b>, then runs the same intake logic as a real collected email.</p>
       <div className="row wrap" style={{ gap: 6 }}>
         {SCN_LABELS.map((l, i) => (
           <button key={i} className="btn ghost sm" onClick={() => scn(i + 1)}>{i + 1}. {l}</button>
         ))}
       </div>
       <section className="card">
-        <h3>Send a test message</h3>
+        <h3>Add a test email</h3>
         <label className="sm">From
           <select value={tSid} onChange={(e) => setTSid(e.target.value)}>
-            {S.students.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+            {S.students.map((s) => <option key={s.id} value={s.id}>{s.name}{s.email ? ` · ${s.email}` : ''}</option>)}
           </select>
         </label>
-        <label className="sm">Message<textarea value={tTxt} onChange={(e) => setTTxt(e.target.value)} /></label>
+        <label className="sm">Email<textarea value={tTxt} onChange={(e) => setTTxt(e.target.value)} /></label>
         <label className="sm">Arrives<input type="datetime-local" value={tAt} onChange={(e) => setTAt(e.target.value)} /></label>
         <p className="mut">Leave blank to arrive now (uses live Family Time and shutdown state).</p>
-        <button className="btn" onClick={tsend}>Send test message</button>
+        <button className="btn" onClick={tsend}>Add test email</button>
       </section>
       {log.map((r, i) => <LogEntry key={i} r={r} />)}
     </>

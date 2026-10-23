@@ -11,7 +11,6 @@ import Family from './views/Family.jsx';
 import Shutdown from './views/Shutdown.jsx';
 import Schedule from './views/Schedule.jsx';
 import Analytics from './views/Analytics.jsx';
-import Student from './views/Student.jsx';
 import More from './views/More.jsx';
 import Data from './views/Data.jsx';
 import About from './views/About.jsx';
@@ -20,13 +19,13 @@ import { Settings, Onboard } from './views/Settings.jsx';
 
 const VIEWS = {
   home: Home, inbox: Inbox, msg: Message, rm: ResponseMode, family: Family,
-  shutdown: Shutdown, schedule: Schedule, analytics: Analytics, student: Student,
+  shutdown: Shutdown, schedule: Schedule, analytics: Analytics,
   more: More, data: Data, about: About, sim: Sim, settings: Settings, onboard: Onboard,
 };
 
 const TABS = [['home', 'Home'], ['inbox', 'Messages'], ['schedule', 'Schedule'], ['analytics', 'Analytics'], ['more', 'More']];
 // which tab/section is highlighted for a given route
-const TAB_OF = { msg: 'inbox', rm: 'inbox', family: 'home', shutdown: 'home', settings: 'more', student: 'more', sim: 'more', data: 'more', about: 'more' };
+const TAB_OF = { msg: 'inbox', rm: 'inbox', family: 'home', shutdown: 'home', settings: 'more', sim: 'more', data: 'more', about: 'more' };
 
 export default function App() {
   const { S, route, go } = useStore();
@@ -122,7 +121,7 @@ export default function App() {
 function viewLabel(name) {
   const labels = {
     home: 'Home', inbox: 'Messages', msg: 'Message', rm: 'Working mode', family: 'Family Time',
-    shutdown: 'End of day', schedule: 'Schedule', analytics: 'Well-being analytics', student: 'Student view',
+    shutdown: 'End of day', schedule: 'Schedule', analytics: 'Well-being analytics',
     more: 'More', data: 'Data management', about: 'About', sim: 'Test scenarios', settings: 'Settings',
   };
   return labels[name] || 'Main content';

@@ -7,17 +7,11 @@ const GROUPS = [
   {
     title: 'Your availability',
     items: [
-      { to: 'settings:work', icon: '🕒', label: 'Teaching hours', desc: 'The days and times you teach' },
-      { to: 'settings:auto', icon: '💬', label: 'Automatic replies', desc: 'What students get when you’re away' },
+      { to: 'settings:work', icon: '🕒', label: 'Working hours', desc: 'The days and times you work' },
+      { to: 'settings:auto', icon: '💬', label: 'Automatic replies', desc: 'What senders get when you’re away' },
       { to: 'settings:notif', icon: '🔔', label: 'Notifications', desc: 'Alerts and how urgent messages are handled' },
       { to: 'settings:family', icon: '💛', label: 'Family time', desc: 'When to switch off and be present' },
       { to: 'settings:quiet', icon: '🌙', label: 'Quiet hours', desc: 'Overnight hours when you’re offline' },
-    ],
-  },
-  {
-    title: 'Your students',
-    items: [
-      { to: 'student', icon: '👀', label: 'Preview your student page', desc: 'See what students and families see' },
     ],
   },
   {

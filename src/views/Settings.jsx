@@ -60,7 +60,7 @@ function SettingsForm({ draft, setDraft, onSave, sec }) {
         <h3>About you</h3>
         <div className="row">
           <label className="sm grow">Name<input value={D.name} onChange={(e) => upd('name', e.target.value)} /></label>
-          <label className="sm grow">Subject<input value={D.subject} onChange={(e) => upd('subject', e.target.value)} /></label>
+          <label className="sm grow">What you do<input value={D.subject} onChange={(e) => upd('subject', e.target.value)} placeholder="e.g. Independent design studio" /></label>
         </div>
         <h3>Working days & hours</h3>
         {ORDER.map((i) => (
@@ -109,8 +109,8 @@ function SettingsForm({ draft, setDraft, onSave, sec }) {
 
       <section className="card" id="sec-auto">
         <label className="tog"><input {...cb('auto')} /><h3>Automatic replies</h3></label>
-        <p className="mut">When a message arrives outside your reply windows, students get this
-          message automatically so they know when to expect an answer.</p>
+        <p className="mut">When an email arrives outside your reply windows, senders get this
+          reply automatically so they know when to expect an answer.</p>
         <label className="sm" htmlFor="auto-tpl">Your automatic reply
           <textarea id="auto-tpl" value={D.tpl} onChange={(e) => upd('tpl', e.target.value)} placeholder="Hi! Thanks for your message…" />
         </label>
@@ -134,15 +134,6 @@ function SettingsForm({ draft, setDraft, onSave, sec }) {
           </label>
         ))}
         <label className="tog sm"><input {...cb('quietAfterShutdown')} />Go offline until the next window after my shutdown routine</label>
-      </section>
-
-      <section className="card" id="sec-student">
-        <h3>Student view</h3>
-        <p className="mut">Choose what students can see. Family time is never shown.</p>
-        <label className="tog sm"><input {...cb('show.days')} />Working days & hours</label>
-        <label className="tog sm"><input {...cb('show.windows')} />Response windows</label>
-        <label className="tog sm"><input {...cb('show.resp')} />Typical response time</label>
-        <input value={D.typical} onChange={(e) => upd('typical', e.target.value)} aria-label="Typical response time" />
       </section>
 
       <div ref={errRef}>{errors.length > 0 && <div className="err">{errors.map((e, i) => <React.Fragment key={i}>{e}<br /></React.Fragment>)}</div>}</div>
@@ -191,7 +182,7 @@ export function Onboard() {
         <IllLaptop />
         <div><h1>BalanceConnect</h1><p className="sm">Clear Boundaries. Meaningful Connections.</p></div>
       </section>
-      <p className="sm">Welcome! Set when you teach, when you reply, and when you’re off. You can change all of this later in More.</p>
+      <p className="sm">Welcome! Set when you work, when you reply, and when you’re off. You can change all of this later in More.</p>
       <SettingsForm draft={draft} setDraft={setDraft} onSave={onSave} />
     </>
   );

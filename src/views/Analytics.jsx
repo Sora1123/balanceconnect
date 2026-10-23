@@ -2,7 +2,7 @@ import React from 'react';
 import { useStore } from '../store.jsx';
 import { IllLaptop } from '../components/ui.jsx';
 import { addDays, dur, pct } from '../lib/utils.js';
-import { range, metrics, buckets } from '../lib/analytics.js';
+import { range, metrics, usageBuckets, USAGE_APPS } from '../lib/analytics.js';
 
 const PERIODS = [['week', 'This week'], ['month', 'This month'], ['year', 'This year']];
 
@@ -17,47 +17,39 @@ function Kpi({ value, label, help }) {
   );
 }
 
-// Accessible SVG line graph with two series (in-window vs after-hours).
-// Uses a fixed viewBox and scales to the container width; y-axis gridlines and
-// labels, points on each data value, and x-axis labels underneath.
-function LineChart({ buckets, niceTop, period }) {
-  const W = 320, H = 150, padL = 24, padR = 8, padT = 10, padB = 20;
+// Accessible SVG bar chart of total app time per bucket (day or month).
+function UsageChart({ buckets, period }) {
+  const W = 320, H = 150, padL = 28, padR = 8, padT = 10, padB = 20;
   const n = buckets.length;
   const innerW = W - padL - padR, innerH = H - padT - padB;
-  const x = (i) => padL + (n <= 1 ? innerW / 2 : (i / (n - 1)) * innerW);
+  const mx = Math.max(1, ...buckets.map((b) => b.total));
+  // Nice round y-axis top in minutes.
+  const steps = [15, 30, 60, 90, 120, 180, 240, 300, 360, 480, 600, 720, 960, 1200];
+  const niceTop = steps.find((s) => s >= mx) || Math.ceil(mx / 60) * 60;
   const y = (v) => padT + innerH - (v / niceTop) * innerH;
-  const line = (key) => buckets.map((b, i) => `${x(i)},${y(b[key])}`).join(' ');
+  const bw = (innerW / n) * 0.62;
+  const bx = (i) => padL + (i + 0.5) * (innerW / n) - bw / 2;
   const gridVals = [0, Math.round(niceTop / 2), niceTop];
-
+  const fmtAxis = (m) => m >= 60 ? (m / 60) + 'h' : m + 'm';
   const labelEvery = Math.ceil(n / (period === 'year' ? 12 : 7));
-  const summary = `Messages by ${period === 'year' ? 'month' : 'day'}. ` +
-    buckets.map((b) => `${b.l || ''}: ${b.in + b.af}`).filter((s) => !s.startsWith(':')).join(', ');
+  const summary = `Total app time by ${period === 'year' ? 'month' : 'day'}. ` +
+    buckets.map((b) => `${b.l || ''}: ${Math.round(b.total)} min`).filter((s) => !s.startsWith(':')).join(', ');
 
   return (
-    <figure className="linechart" role="img" aria-label={summary} style={{ margin: 0 }}>
-      <svg viewBox={`0 0 ${W} ${H}`} width="100%" preserveAspectRatio="none" style={{ display: 'block', height: 'auto' }}>
-        {/* y gridlines + labels */}
+    <figure className="linechart" role="img" aria-label={summary} style={{ margin: 0, maxWidth: 560 }}>
+      <svg viewBox={`0 0 ${W} ${H}`} width="100%" preserveAspectRatio="xMidYMid meet" style={{ display: 'block', height: 'auto' }}>
         {gridVals.map((v, i) => (
           <g key={i}>
             <line x1={padL} x2={W - padR} y1={y(v)} y2={y(v)} stroke="var(--line)" strokeWidth="1" />
-            <text x={padL - 4} y={y(v) + 3} textAnchor="end" fontSize="8" fill="var(--muted)">{v}</text>
+            <text x={padL - 4} y={y(v) + 3} textAnchor="end" fontSize="8" fill="var(--muted)">{fmtAxis(v)}</text>
           </g>
         ))}
-        {/* after-hours series (amber) */}
-        <polyline points={line('af')} fill="none" stroke="var(--peach)" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
-        {/* in-window series (green) */}
-        <polyline points={line('in')} fill="none" stroke="var(--sage)" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
-        {/* points */}
         {buckets.map((b, i) => (
-          <g key={i}>
-            <circle cx={x(i)} cy={y(b.af)} r="2.4" fill="var(--peach)" />
-            <circle cx={x(i)} cy={y(b.in)} r="2.4" fill="var(--sage)" />
-          </g>
+          <rect key={i} x={bx(i)} y={y(b.total)} width={bw} height={Math.max(0, innerH - (y(b.total) - padT))} rx="1.5" fill="var(--sage)" />
         ))}
-        {/* x labels */}
         {buckets.map((b, i) => (
           (i % labelEvery === 0 || i === n - 1) && b.l
-            ? <text key={i} x={x(i)} y={H - 6} textAnchor="middle" fontSize="8" fill="var(--muted)">{b.l}</text>
+            ? <text key={i} x={bx(i) + bw / 2} y={H - 6} textAnchor="middle" fontSize="8" fill="var(--muted)">{b.l}</text>
             : null
         ))}
       </svg>
@@ -65,30 +57,61 @@ function LineChart({ buckets, niceTop, period }) {
   );
 }
 
+// Builds an assistant-style summary from the app's own data: a plain-language
+// read on how the period went, plus concrete suggestions to improve working
+// hours and boundaries. Deterministic — derived purely from the metrics.
+function buildInsight(M, P, U, p) {
+  const afterShare = M.msgs ? Math.round((M.after / M.msgs) * 100) : 0;
+  const inWin = pct(M.inWin, M.msgs);
+  const findings = [];
+  const suggestions = [];
+
+  // Headline read on the period.
+  let headline;
+  if (afterShare <= 20 && M.shut >= 1) headline = `Strong ${p}. Most emails landed inside your reply windows and you’re closing the day on purpose.`;
+  else if (afterShare >= 50) headline = `This ${p} leaned after-hours. Your inbox is reaching you well outside your working hours.`;
+  else headline = `A fairly balanced ${p}, with a few habits worth nudging.`;
+
+  // Findings — comparisons against last period where we have data.
+  if (P.msgs >= 3 && P.after > 0 && M.msgs > 0) {
+    const ch = Math.round(((M.after - P.after) / P.after) * 100);
+    findings.push(`After-hours emails ${ch <= 0 ? 'fell' : 'rose'} ${Math.abs(ch)}% versus last ${p}.`);
+  }
+  findings.push(`${inWin}% of emails arrived during your reply windows (${M.inWin} of ${M.msgs}).`);
+  if (M.avg != null) findings.push(`Average reply time was ${dur(M.avg)}.`);
+  if (M.fam > 0) findings.push(`You logged ${M.fam} Family Time session${M.fam === 1 ? '' : 's'} (${dur(M.famMin)}).`);
+  if (U.grand >= 1) findings.push(`Tracked app time totalled ${dur(U.grand)} this ${p}.`);
+
+  // Suggestions — actionable, aimed at working hours & boundaries.
+  if (afterShare >= 35) suggestions.push('Add or widen a reply window so more email lands inside working hours instead of spilling into the evening.');
+  if (M.avg != null && M.avg > 240) suggestions.push('Your replies average over four hours — a short midday window can cut the wait without constant checking.');
+  if (M.shut < 2) suggestions.push('Run the end-of-day routine more often; a clear stop makes it easier to switch off.');
+  if (M.fam === 0) suggestions.push('Schedule a daily Family Time block so non-urgent alerts go quiet automatically.');
+  if (inWin >= 70 && afterShare < 25) suggestions.push('Boundaries are holding well — consider protecting one screen-free evening to lock in the gains.');
+  if (!suggestions.length) suggestions.push('Keep your current rhythm — batching replies into windows is clearly working.');
+
+  return { headline, findings, suggestions: suggestions.slice(0, 3) };
+}
+
 export default function Analytics() {
   const { S, route, patchRoute, mutate } = useStore();
   const p = route.p || 'week';
   const [a, b] = range(p), [pa, pb] = range(p, -1);
   const M = metrics(S, a, b), P = metrics(S, pa, pb);
-  const B = buckets(p, a, b, M.A);
-  const mx = Math.max(1, ...B.map((x) => x.in + x.af));
-  // Nice round y-axis top (1, 2, 5, 10, …) at or above the tallest bar.
-  const niceTop = (() => { const steps = [1, 2, 3, 4, 5, 6, 8, 10, 12, 15, 20, 30, 50]; return steps.find((s) => s >= mx) || Math.ceil(mx / 10) * 10; })();
-
-  const ins = [];
-  if (P.msgs >= 3 && M.msgs > 0 && P.after > 0) { const ch = Math.round((M.after - P.after) / P.after * 100); ins.push(`Your after-hours messages ${ch <= 0 ? 'went down' : 'went up'} by ${Math.abs(ch)}% compared with last ${p}.`); }
-  if (P.fam > 0 && M.famMin > P.famMin) ins.push(`You protected ${dur(M.famMin - P.famMin)} more personal time than last ${p}.`);
-  if (p === 'week') { const days = Math.min(7, Math.floor((Date.now() - a) / 864e5) + 1); if (M.shut) ins.push(`You finished your end-of-day routine on ${M.shut} of ${days} day${days === 1 ? '' : 's'}.`); }
-  if (M.avg != null && M.rep >= 2) ins.push(`On average you replied in ${dur(M.avg)}.`);
   const enough = M.n >= 3;
 
+  const U = usageBuckets(S, p, a, b);
+  const usageMax = Math.max(1, ...USAGE_APPS.map((x) => U.totals[x.key] || 0));
+  const perLabel = p === 'week' ? 'day' : p === 'month' ? 'day' : 'month';
+
   const workPct = pct(M.work, M.work + M.famMin);
+  const ai = buildInsight(M, P, U, p);
   const toggleDemo = (checked) => mutate((S) => { S.includeDemo = checked; });
 
   return (
     <>
       <h2>Your well-being</h2>
-      <p className="mut">A gentle look at your teaching rhythm — not a performance score.</p>
+      <p className="mut">A gentle look at your working rhythm — not a performance score.</p>
 
       <div className="seg" role="radiogroup" aria-label="Time period">
         {PERIODS.map(([k, label]) => (
@@ -109,23 +132,61 @@ export default function Analytics() {
         </section>
       ) : (
         <>
+          <section className="card" style={{ background: 'var(--lav)', border: 0 }}>
+            <div className="row sp">
+              <h3>✨ AI insights</h3>
+              <span className="chip c-demo" style={{ textTransform: 'none' }}>Auto-generated</span>
+            </div>
+            <p className="sm">{ai.headline}</p>
+            {ai.findings.length > 0 && (
+              <ul className="sm" style={{ margin: '4px 0 0', paddingLeft: 18 }}>
+                {ai.findings.map((f, i) => <li key={i}>{f}</li>)}
+              </ul>
+            )}
+            <p className="sm" style={{ fontWeight: 700, marginTop: 8 }}>Suggestions to improve your working hours</p>
+            <ul className="sm" style={{ margin: 0, paddingLeft: 18 }}>
+              {ai.suggestions.map((s, i) => <li key={i}>{s}</li>)}
+            </ul>
+            <p className="mut" style={{ marginTop: 6 }}>Generated from your own activity in this app. Not professional advice.</p>
+          </section>
+
           <div className="kpis">
-            <Kpi value={M.after} label="After-hours messages" help="Arrived outside your teaching hours" />
-            <Kpi value={`${pct(M.inWin, M.msgs)}%`} label="Arrived in your windows" help={`${M.inWin} of ${M.msgs} messages`} />
-            <Kpi value={M.avg == null ? '—' : dur(M.avg)} label="Average reply time" help="How long students waited" />
+            <Kpi value={M.after} label="After-hours emails" help="Arrived outside your working hours" />
+            <Kpi value={`${pct(M.inWin, M.msgs)}%`} label="Arrived in your windows" help={`${M.inWin} of ${M.msgs} emails`} />
             <Kpi value={M.fam} label="Family Time sessions" help="Times you switched off" />
-            <Kpi value={M.auto} label="Auto-replies sent" help="Handled for you while away" />
             <Kpi value={M.shut} label="End-of-day routines" help="Days you wrapped up cleanly" />
           </div>
 
           <section className="card">
-            <h3>When messages arrived</h3>
-            <p className="mut">Each point is the number of messages that {p === 'year' ? 'month' : 'day'}. Green = during your reply windows; amber = after hours.</p>
-            <div className="row sm" style={{ gap: 14 }}>
-              <span className="row" style={{ gap: 6 }}><span style={{ width: 14, height: 3, background: 'var(--sage)', borderRadius: 2, display: 'inline-block' }} />In your windows</span>
-              <span className="row" style={{ gap: 6 }}><span style={{ width: 14, height: 3, background: 'var(--peach)', borderRadius: 2, display: 'inline-block' }} />After hours</span>
+            <div className="row sp">
+              <h3>Time in apps</h3>
+              <span className="mut">{U.grand >= 1 ? dur(U.grand) + ' total' : '—'}</span>
             </div>
-            <LineChart buckets={B} niceTop={niceTop} period={p} />
+            <p className="mut">Total app time per {perLabel} across {p === 'week' ? 'this week' : p === 'month' ? 'this month' : 'this year'}.</p>
+            <UsageChart buckets={U.buckets} period={p} />
+            <div className="row sp sm" style={{ marginTop: 6 }}>
+              <span>Total this {p}</span>
+              <span style={{ fontVariantNumeric: 'tabular-nums' }}>{U.grand >= 1 ? dur(U.grand) : '0 min'}</span>
+            </div>
+          </section>
+
+          <section className="card">
+            <h3>Where the time went</h3>
+            <p className="mut">How your total app time this {p} splits across each app.</p>
+            {USAGE_APPS.map((app) => {
+              const mins = U.totals[app.key] || 0;
+              return (
+                <div key={app.key} className="row" style={{ gap: 12 }}>
+                  <span style={{ width: 150, flex: 'none' }} className="sm"><span aria-hidden="true">{app.icon}</span> {app.label}</span>
+                  <span className="grow bar" style={{ background: 'var(--bg-2)' }}>
+                    <i style={{ width: Math.round((mins / usageMax) * 100) + '%', background: app.color }} />
+                  </span>
+                  <span className="sm" style={{ width: 64, flex: 'none', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{mins >= 1 ? dur(mins) : '0 min'}</span>
+                </div>
+              );
+            })}
+            <p className="mut">BalanceConnect time is measured on this device. Google Docs, Notion and email
+              figures are example data — a web app can’t read other apps’ usage without a browser extension or device permissions.</p>
           </section>
 
           <section className="card">
@@ -138,13 +199,7 @@ export default function Analytics() {
               <span className="row" style={{ gap: 6 }}><span style={{ width: 12, height: 12, background: 'var(--pur)', borderRadius: 3, display: 'inline-block' }} />Work · {dur(M.work)}</span>
               <span className="row" style={{ gap: 6 }}><span style={{ width: 12, height: 12, background: 'var(--peach)', borderRadius: 3, display: 'inline-block' }} />Personal · {dur(M.famMin)}</span>
             </div>
-            <p className="mut">Work counts finished lessons and working sessions. Personal counts the Family Time you logged.</p>
-          </section>
-
-          <section className="card" style={{ background: 'var(--sage-s)', border: 0 }}>
-            <h3>✨ What stands out</h3>
-            {ins.length ? ins.map((i, idx) => <p key={idx} className="sm">{i}</p>)
-              : <p className="mut">Keep going — comparisons appear once last {p} has activity too.</p>}
+            <p className="mut">Work counts completed appointments and working sessions. Personal counts the Family Time you logged.</p>
           </section>
         </>
       )}

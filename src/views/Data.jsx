@@ -8,7 +8,7 @@ export default function Data() {
 
   const clearDemo = () => confirmBox(
     'Remove the demo data?',
-    'This clears the example messages, lessons and history. The demo students stay so your own test messages still have someone to come from. Your real activity is kept.',
+    'This clears the example emails, appointments and history. The demo clients stay so your own test emails still have someone to come from. Your real activity is kept.',
     'Remove demo data',
     () => {
       mutate((S) => {
@@ -23,7 +23,7 @@ export default function Data() {
 
   const reset = () => confirmBox(
     'Start over from scratch?',
-    'This permanently replaces everything on this device — your settings, messages, lessons and history — with the original demo content. This cannot be undone.',
+    'This permanently replaces everything on this device — your settings, emails, appointments and history — with the original demo content. This cannot be undone.',
     'Reset everything',
     () => {
       mutate((S) => {
@@ -45,7 +45,7 @@ export default function Data() {
         <h3>Where your data lives</h3>
         <p className="sm">Everything is saved only in this web browser on this device. Nothing is sent
           anywhere. If you clear your browser data, it will be removed.</p>
-        <p className="mut">Currently stored: {S.messages.length} messages, {S.lessons.length} lessons,
+        <p className="mut">Currently stored: {S.messages.length} emails, {S.lessons.length} appointments,
           and {S.acts.length} activity records ({S.acts.filter((a) => a.demo).length} from the demo).</p>
       </section>
       <section className="card">

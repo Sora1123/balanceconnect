@@ -1,5 +1,48 @@
 // Analytics service: date ranges, metrics aggregation, chart buckets.
-import { sod, addDays, atDate, toMin, DAYS } from './utils.js';
+import { sod, addDays, atDate, toMin, dk, DAYS } from './utils.js';
+
+// The apps tracked in S.usage[dateKey] (minutes). Keep in sync with Home.
+export const USAGE_APPS = [
+  { key: 'bc', label: 'BalanceConnect', icon: '🌿', color: 'var(--pur)' },
+  { key: 'gdocs', label: 'Google Docs', icon: '📄', color: '#4285F4' },
+  { key: 'gclass', label: 'Google Classroom', icon: '🎓', color: '#1E8E3E' },
+  { key: 'gmail', label: 'Gmail', icon: '✉️', color: '#EA4335' },
+];
+
+// Aggregate per-app usage over [a, b) into chart buckets plus per-app totals.
+// Respects the "include demo history" toggle via S.includeDemo.
+export function usageBuckets(S, p, a, b) {
+  const usage = S.usage || {};
+  const dayMins = (key) => {
+    const u = usage[key];
+    if (!u || (u.demo && !S.includeDemo)) return null;
+    return u;
+  };
+
+  // Build the same bucket boundaries as the message chart.
+  const spans = [];
+  if (p === 'year') {
+    for (let i = 0; i < 12; i++) spans.push([new Date(a.getFullYear(), i, 1).toLocaleDateString(undefined, { month: 'narrow' }), new Date(a.getFullYear(), i, 1), new Date(a.getFullYear(), i + 1, 1)]);
+  } else {
+    for (let d = new Date(a); d < b; d = addDays(d, 1)) spans.push([p === 'week' ? DAYS[d.getDay()] : (d.getDate() % 5 === 1 ? d.getDate() : ''), new Date(d), addDays(d, 1)]);
+  }
+
+  const totals = Object.fromEntries(USAGE_APPS.map((app) => [app.key, 0]));
+  let grand = 0;
+
+  const bkts = spans.map(([l, s, e]) => {
+    let total = 0;
+    for (let d = new Date(s); d < e; d = addDays(d, 1)) {
+      const u = dayMins(dk(d));
+      if (!u) continue;
+      for (const app of USAGE_APPS) { const m = u[app.key] || 0; total += m; totals[app.key] += m; }
+    }
+    grand += total;
+    return { l, total };
+  });
+
+  return { buckets: bkts, totals, grand };
+}
 
 export function range(p, off = 0) {
   const n = new Date(); let a, b;

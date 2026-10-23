@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { COURSES, COURSE_BY_ID, seed, defaults } from '../src/lib/state.js';
 
-describe('HIPPOCAMPUS course catalogue', () => {
-  it('matches the published lesson durations and fees', () => {
+describe('service catalogue', () => {
+  it('matches the preset durations and fees', () => {
     const want = {
       children: { mins: 45, fee: 55 },
       everyday: { mins: 60, fee: 75 },
@@ -36,18 +36,18 @@ describe('HIPPOCAMPUS course catalogue', () => {
   });
 });
 
-describe('HIPPOCAMPUS demo seed', () => {
-  it('names the teacher Mika and brands the subject HIPPOCAMPUS', () => {
+describe('demo seed', () => {
+  it('names the owner Mika and describes an independent studio', () => {
     const d = defaults();
     expect(d.name).toBe('Mika');
-    expect(d.subject).toMatch(/HIPPOCAMPUS/);
+    expect(d.subject).toMatch(/studio/i);
   });
 
-  it('seeds students across real course types, each linked to the catalogue', () => {
+  it('seeds clients across service types, each linked to the catalogue', () => {
     const S = seed();
     expect(S.students.length).toBeGreaterThanOrEqual(5);
     const linkedCourseIds = new Set(S.students.map((s) => s.courseId).filter(Boolean));
-    // At least one native-track and one non-native-track learner.
+    // At least one of each service track.
     const tracks = new Set([...linkedCourseIds].map((id) => COURSE_BY_ID[id]?.track));
     expect(tracks.has('Native')).toBe(true);
     expect(tracks.has('Non-native')).toBe(true);
@@ -55,10 +55,18 @@ describe('HIPPOCAMPUS demo seed', () => {
     for (const id of linkedCourseIds) expect(COURSE_BY_ID[id]).toBeTruthy();
   });
 
-  it('seeds lessons whose durations are plausible for their courses', () => {
+  it('gives every demo client an email address (collected from Gmail/Outlook)', () => {
+    const S = seed();
+    for (const c of S.students) {
+      expect(typeof c.email, `${c.id} has email`).toBe('string');
+      expect(c.email).toMatch(/.+@.+\..+/);
+    }
+  });
+
+  it('seeds appointments whose durations are plausible for their service', () => {
     const S = seed();
     expect(S.lessons.length).toBeGreaterThan(0);
-    // There should be at least one short (children/preschool) and one long (IBDP) style lesson.
+    // There should be at least one short and one long engagement.
     const durs = S.lessons.map((l) => {
       const [sh, sm] = l.s.split(':').map(Number);
       const [eh, em] = l.e.split(':').map(Number);

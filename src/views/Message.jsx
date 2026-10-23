@@ -44,6 +44,7 @@ export default function Message() {
   return (
     <>
       <Head title={s.name} back={route.back || 'inbox'} />
+      {s.email && <p className="mut" style={{ marginTop: -4 }}>From {s.email} · collected from your {/@outlook|@hotmail|@live/.test(s.email) ? 'Outlook' : 'Gmail'} inbox</p>}
       <div className="row wrap" style={{ gap: 6 }}>
         <StatusChip m={m} /><span className="chip">{CAT[m.cat][0]}</span><span className="mut">{s.course}</span>
       </div>
@@ -56,7 +57,7 @@ export default function Message() {
       <section className="card">
         {m.thread.map((t, i) => (
           <div key={i} className={`bub ${t.f}`}>
-            {t.f === 'a' && <><b className="sm">Automatic reply (simulated)</b>{'\n'}</>}
+            {t.f === 'a' && <><b className="sm">Automatic reply (draft)</b>{'\n'}</>}
             {t.t}
             <div className="mut" style={{ fontSize: 11, marginTop: 4 }}>{fmtD(t.at)}</div>
           </div>
@@ -74,9 +75,9 @@ export default function Message() {
         </select>
       </label>
       <section className="card">
-        <label className="sm"><b>Reply</b> <span className="mut">(in-app only, nothing is sent externally)</span></label>
+        <label className="sm"><b>Reply</b> <span className="mut">(drafted here; in this demo nothing is actually sent)</span></label>
         <textarea placeholder="Write your reply…" value={replyText} onChange={(e) => setReplyText(e.target.value)} />
-        <button className="btn" onClick={send}>Send reply</button>
+        <button className="btn" onClick={send}>Send reply{s.email ? ` to ${s.email}` : ''}</button>
       </section>
     </>
   );

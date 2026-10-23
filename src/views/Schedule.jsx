@@ -43,7 +43,7 @@ function LessonSheet({ initial, onClose }) {
   const removeSeries = () => {
     const id = L.id;
     mutate((S) => { S.lessons = S.lessons.filter((x) => x.id !== id); });
-    toast('Lesson series deleted');
+    toast('Repeating appointment deleted');
   };
   const removeOccurrence = () => {
     const id = L.id;
@@ -51,23 +51,23 @@ function LessonSheet({ initial, onClose }) {
       const x = S.lessons.find((l) => l.id === id);
       if (x) x.exdates = [...(x.exdates || []), occurrenceDate];
     });
-    toast('This lesson was removed');
+    toast('This appointment was removed');
   };
   const del = () => {
     onClose(null);
     if (isExisting && isRecurring) {
       confirmBox(
-        'Delete a repeating lesson',
-        `“${(L.subject || 'lesson').trim()}” with ${stuName(L.sid)} repeats ${repeatLabel(L.repeat).toLowerCase()}. Remove just this date, or the whole repeating series?`,
+        'Delete a repeating appointment',
+        `“${(L.subject || 'appointment').trim()}” with ${stuName(L.sid)} repeats ${repeatLabel(L.repeat).toLowerCase()}. Remove just this date, or the whole repeating series?`,
         'Remove the whole series',
         removeSeries,
         { danger: true, secondary: { label: 'Remove this date only', onClick: removeOccurrence } },
       );
     } else {
       confirmBox(
-        'Delete this lesson?',
-        `This removes ${stuName(L.sid)}’s “${(L.subject || 'lesson').trim()}” from your schedule. This can’t be undone.`,
-        'Delete lesson',
+        'Delete this appointment?',
+        `This removes ${stuName(L.sid)}’s “${(L.subject || 'appointment').trim()}” from your schedule. This can’t be undone.`,
+        'Delete appointment',
         removeSeries,
         { danger: true },
       );
@@ -75,8 +75,8 @@ function LessonSheet({ initial, onClose }) {
   };
 
   const doSave = () => {
-    const lesson = { ...L, subject: (L.subject || '').trim() || 'Lesson' };
-    if (!lesson.date) { setCf({ err: 'Please choose a date for the lesson.' }); return; }
+    const lesson = { ...L, subject: (L.subject || '').trim() || 'Appointment' };
+    if (!lesson.date) { setCf({ err: 'Please choose a date for the appointment.' }); return; }
     if (!lesson.s || !lesson.e || toMin(lesson.e) <= toMin(lesson.s)) {
       setCf({ err: 'The end time needs to be after the start time (for example, 2:00 PM to 3:00 PM).' }); return;
     }
@@ -91,13 +91,13 @@ function LessonSheet({ initial, onClose }) {
       const i = S.lessons.findIndex((x) => x.id === lesson.id);
       if (i >= 0) S.lessons[i] = lesson; else S.lessons.push(lesson);
     });
-    toast(lesson.repeat !== 'none' ? 'Repeating lesson saved' : 'Lesson saved');
+    toast(lesson.repeat !== 'none' ? 'Repeating appointment saved' : 'Appointment saved');
     onClose(lesson.date);
   };
 
   return (
-    <Dialog title={isExisting ? 'Edit lesson' : 'New lesson'} onClose={close}>
-      <label className="sm">Student
+    <Dialog title={isExisting ? 'Edit appointment' : 'New appointment'} onClose={close}>
+      <label className="sm">Client
         <select value={L.sid} onChange={(e) => {
           const sid = e.target.value;
           const mins = COURSE_BY_ID[S.students.find((s) => s.id === sid)?.courseId]?.mins;
@@ -109,8 +109,8 @@ function LessonSheet({ initial, onClose }) {
           {S.students.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
         </select>
       </label>
-      <label className="sm">What is the lesson about?
-        <input value={L.subject} onChange={(e) => set('subject', e.target.value)} placeholder="e.g. Hiragana review, JLPT N3, IB Paper 1" />
+      <label className="sm">What is the appointment about?
+        <input value={L.subject} onChange={(e) => set('subject', e.target.value)} placeholder="e.g. Design review, strategy call, project kickoff" />
       </label>
       <label className="sm">{isRecurring ? 'Starting date' : 'Date'}
         <input type="date" value={L.date} onChange={(e) => set('date', e.target.value)} />
@@ -125,8 +125,8 @@ function LessonSheet({ initial, onClose }) {
           {REPEAT_OPTS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
         </select>
       </label>
-      {isRecurring && <p className="mut">This lesson will repeat {repeatLabel(L.repeat).toLowerCase()} on {atDate(L.date, '12:00').toLocaleDateString(undefined, { weekday: 'long' })}s.</p>}
-      <label className="sm">Notes <span className="mut">(optional)</span><textarea value={L.notes} onChange={(e) => set('notes', e.target.value)} placeholder="Anything to remember for this lesson" /></label>
+      {isRecurring && <p className="mut">This appointment will repeat {repeatLabel(L.repeat).toLowerCase()} on {atDate(L.date, '12:00').toLocaleDateString(undefined, { weekday: 'long' })}s.</p>}
+      <label className="sm">Notes <span className="mut">(optional)</span><textarea value={L.notes} onChange={(e) => set('notes', e.target.value)} placeholder="Anything to remember for this appointment" /></label>
       {cf?.err && <div className="err" role="alert"><span aria-hidden="true">⚠ </span>{cf.err}</div>}
       {cf?.soft?.length > 0 && <div className="warn" role="alert"><span aria-hidden="true">💡 </span>Heads up: {cf.soft.join('; ')}. Press Save again to keep this time anyway.</div>}
       <div className="row">
@@ -158,7 +158,7 @@ function DayItems({ dateKey, onEdit }) {
       <button className="btn ghost sm" onClick={() => onEdit(l.occurrenceOf, dateKey)}>Edit</button>
     </div>]));
   if (w.on) st.windows.forEach((x, idx) => I.push([x.s,
-    <div key={'w' + idx} className="blk win"><span className="tm">{fmtT(x.s)}<br />{fmtT(x.e)}</span><div><b>Reply window</b><p className="sm">💬 Catch up on messages</p></div></div>]));
+    <div key={'w' + idx} className="blk win"><span className="tm">{fmtT(x.s)}<br />{fmtT(x.e)}</span><div><b>Reply window</b><p className="sm">💬 Catch up on emails</p></div></div>]));
   if (st.family.on) I.push([st.family.s,
     <div key="fam" className="blk fam"><span className="tm">{fmtT(st.family.s)}<br />{fmtT(st.family.e)}</span><div><b>Family Time</b><p className="sm">💛 Personal, private to you</p></div></div>]);
   if (st.quiet.on) I.push([st.quiet.s,
@@ -166,7 +166,7 @@ function DayItems({ dateKey, onEdit }) {
   I.sort((a, b) => toMin(a[0]) - toMin(b[0]));
   return (
     <>
-      <p className="mut">{w.on ? `Teaching ${fmtT(w.s)}–${fmtT(w.e)}` : 'Not a teaching day'}</p>
+      <p className="mut">{w.on ? `Working ${fmtT(w.s)}–${fmtT(w.e)}` : 'Not a working day'}</p>
       {I.length ? I.map(([, node]) => node) : <p className="mut">Nothing scheduled.</p>}
     </>
   );
@@ -225,7 +225,7 @@ export default function Schedule() {
               <span className="sm grow">{stuName(l.sid)} · {l.subject}</span>
               {l.repeat && l.repeat !== 'none' && <span aria-hidden="true" title="Repeats">🔁</span>}
             </button>
-          )) : <p className="mut sm">No lessons</p>}
+          )) : <p className="mut sm">No appointments</p>}
         </section>
       );
     });
@@ -233,7 +233,7 @@ export default function Schedule() {
 
   return (
     <>
-      <div className="row sp"><h2>Schedule</h2><button className="btn sm" onClick={newLesson}>+ Add lesson</button></div>
+      <div className="row sp"><h2>Schedule</h2><button className="btn sm" onClick={newLesson}>+ Add appointment</button></div>
       <div className="tabs" role="tablist" aria-label="Schedule view">
         <button role="tab" aria-selected={mode === 'day'} className={`tab ${mode === 'day' ? 'on' : ''}`} onClick={() => patchRoute({ mode: 'day' })}>Day</button>
         <button role="tab" aria-selected={mode === 'week'} className={`tab ${mode === 'week' ? 'on' : ''}`} onClick={() => patchRoute({ mode: 'week' })}>Week</button>

@@ -9,7 +9,8 @@ import { byTriage } from '../lib/triage.js';
 const FILTERS = [['all', 'All'], ['urgent', 'Urgent'], ['normal', 'Normal'], ['enquiry', 'Enquiries'], ['queued', 'Queued'], ['archived', 'Archived']];
 
 function MessageRow({ m }) {
-  const { go, mutate, stuName } = useStore();
+  const { go, mutate, stuName, stu } = useStore();
+  const sender = stu(m.sid);
   const open = () => {
     mutate((S) => { const x = S.messages.find((y) => y.id === m.id); if (x) x.read = true; });
     go('msg', { id: m.id, back: 'inbox' });
@@ -19,6 +20,7 @@ function MessageRow({ m }) {
       <Avatar sid={m.sid} />
       <div className="grow">
         <div className="row sp"><b>{stuName(m.sid)}</b><span className="mut">{ago(m.at)}</span></div>
+        {sender.email && <div className="mut" style={{ fontSize: 12 }}>{sender.email}</div>}
         <div className="pv">{m.thread[0].t}</div>
         <div className="row wrap" style={{ gap: 4, marginTop: 4 }}>
           <StatusChip m={m} />
@@ -40,13 +42,13 @@ export default function Inbox() {
   const q = (route.q || '').toLowerCase();
   const f = route.f || 'all';
 
-  const { stuName } = useStore();
+  const { stuName, stu } = useStore();
   let L = S.messages.filter((m) => (f === 'archived' ? m.status === 'archived' : m.status !== 'archived'));
   if (f === 'urgent') L = L.filter((m) => m.urgent);
   if (f === 'normal') L = L.filter((m) => !m.urgent && m.cat !== 'enquiry');
   if (f === 'enquiry') L = L.filter((m) => m.cat === 'enquiry');
   if (f === 'queued') L = L.filter((m) => m.status === 'queued');
-  if (q) L = L.filter((m) => (stuName(m.sid) + ' ' + m.thread.map((t) => t.t).join(' ')).toLowerCase().includes(q));
+  if (q) L = L.filter((m) => (stuName(m.sid) + ' ' + (stu(m.sid).email || '') + ' ' + m.thread.map((t) => t.t).join(' ')).toLowerCase().includes(q));
 
   const open = byTriage(L.filter((m) => m.status !== 'replied'));
   const done = L.filter((m) => m.status === 'replied');
@@ -54,10 +56,11 @@ export default function Inbox() {
 
   return (
     <>
-      <div className="row sp"><h2>Messages</h2><button className="btn sm sage" onClick={() => go('rm')}>Working mode</button></div>
+      <div className="row sp"><h2>Inbox</h2><button className="btn sm sage" onClick={() => go('rm')}>Working mode</button></div>
+      <p className="mut">Emails collected automatically from your connected Gmail and Outlook accounts. Replies go out from your own mailbox.</p>
       <input
         type="search"
-        placeholder="Search students or messages"
+        placeholder="Search senders, email addresses or messages"
         value={route.q || ''}
         onChange={(e) => patchRoute({ q: e.target.value })}
         aria-label="Search"
@@ -67,11 +70,11 @@ export default function Inbox() {
           <button key={k} className={`tab ${f === k ? 'on' : ''}`} onClick={() => patchRoute({ f: k })}>{l}</button>
         ))}
       </div>
-      <p className="mut">Sorted by triage: urgent → scheduling → existing students → new enquiries → other.</p>
+      <p className="mut">Sorted by triage: urgent → scheduling → existing clients → new enquiries → other.</p>
       <section className="card" style={{ padding: '4px 12px' }}>
         <div className="list">
           {all.length ? all.map((m) => <MessageRow key={m.id} m={m} />)
-            : <p className="mut" style={{ padding: '16px 4px' }}>No messages match. Try another filter, or send a test message from More → Test scenarios.</p>}
+            : <p className="mut" style={{ padding: '16px 4px' }}>No emails match. Try another filter, or add a test email from More → Test scenarios.</p>}
         </div>
       </section>
     </>

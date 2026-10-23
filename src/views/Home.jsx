@@ -12,10 +12,21 @@ import { TIPS } from '../lib/state.js';
 // apps' usage).
 const USAGE_APPS = [
   { key: 'gdocs', label: 'Google Docs', icon: '📄', color: '#4285F4' },
-  { key: 'gclass', label: 'Google Classroom', icon: '🎓', color: '#1E8E3E' },
-  { key: 'gmail', label: 'Gmail', icon: '✉️', color: '#EA4335' },
+  { key: 'gclass', label: 'Notion', icon: '🗂️', color: '#111111' },
+  { key: 'gmail', label: 'Gmail & Outlook', icon: '✉️', color: '#EA4335' },
   { key: 'bc', label: 'BalanceConnect', icon: '🌿', color: 'var(--pur)' },
 ];
+
+// Plain-language description of each auto-derived mode (keyed by statusNow()).
+// Modes switch on their own with the clock — there are no manual toggles.
+const MODE_COPY = {
+  window: 'You’re in a reply window — a good time to work through your messages in Working mode.',
+  working: 'You’re in working hours. Messages queue quietly until your next reply window.',
+  family: 'Family Time is on. Non-urgent alerts are silenced so you can switch off.',
+  offline: 'You’re done for today. You’ll come back online at your next reply window.',
+  quiet: 'Quiet hours — you’re offline and non-urgent alerts are silenced.',
+  off: 'You’re off work. Messages queue with an expected-reply time.',
+};
 
 export default function Home() {
   const { S, go, mutate, stuName, setDemoDay, resetDemoDay, demoOffset } = useStore();
@@ -38,9 +49,9 @@ export default function Home() {
   const doneToday = todayL.filter((l) => toMin(l.e) <= nowMin).length;
 
   const tasks = [
-    ['reply', 'Reply to waiting messages', `${open.length} waiting`],
-    ['lessons', 'Teach today’s lessons', `${todayL.length} today`],
-    ['prep', 'Prepare lesson materials', ''],
+    ['reply', 'Reply to waiting emails', `${open.length} waiting`],
+    ['lessons', 'Attend today’s appointments', `${todayL.length} today`],
+    ['prep', 'Prepare for client work', ''],
     ['admin', 'Update notes & admin', ''],
   ];
   const doneCount = Object.values(tk).filter(Boolean).length;
@@ -97,11 +108,11 @@ export default function Home() {
         </div>
         <p className="mut">
           {todayL.length
-            ? `${todayL.length} lesson${todayL.length === 1 ? '' : 's'} · ${doneToday} done`
-            : 'No lessons today — a lighter day.'}
+            ? `${todayL.length} appointment${todayL.length === 1 ? '' : 's'} · ${doneToday} done`
+            : 'No appointments today — a lighter day.'}
         </p>
         {todayL.length > 0 && (
-          <ol className="timeline" aria-label="Lessons today">
+          <ol className="timeline" aria-label="Appointments today">
             {todayL.map((l, i) => {
               const state = i === nowIdx ? 'now' : toMin(l.e) <= nowMin ? 'done' : 'upcoming';
               return (
@@ -145,7 +156,7 @@ export default function Home() {
         </section>
 
         <section className="card">
-          <div className="row sp"><h3>Next lesson</h3><button className="btn ghost sm" onClick={() => go('schedule')}>Schedule</button></div>
+          <div className="row sp"><h3>Next appointment</h3><button className="btn ghost sm" onClick={() => go('schedule')}>Schedule</button></div>
           {up ? (
             <div className="row">
               <Avatar sid={up.sid} />
@@ -156,7 +167,7 @@ export default function Home() {
               </div>
               <button className="btn sm" onClick={() => go('schedule', { date: up.date, editId: up.occurrenceOf, editDate: up.date })}>Details</button>
             </div>
-          ) : <p className="mut">No upcoming lessons. Add one in Schedule.</p>}
+          ) : <p className="mut">No upcoming appointments. Add one in Schedule.</p>}
         </section>
 
         <section className="card">
@@ -186,15 +197,20 @@ export default function Home() {
               </div>
             );
           })}
-          <p className="mut">BalanceConnect time is measured on this device. Google Docs, Classroom and Gmail
+          <p className="mut">BalanceConnect time is measured on this device. Google Docs, Notion and email
             figures are example data — a web app can’t read other apps’ usage without a browser extension or device permissions.</p>
         </section>
 
-        <div className="row wrap span-2">
-          <button className="btn sage grow" onClick={() => go('rm')}>Working mode</button>
-          <button className="btn peach grow" onClick={() => go('family')}>Family Time</button>
-          <button className="btn ghost grow" onClick={() => go('shutdown')}>End of day</button>
-        </div>
+        <section className="card span-2" aria-label="Current mode">
+          <div className="row sp">
+            <h3>Right now</h3>
+            <span className={`pill st-${sk}`}>{sl}</span>
+          </div>
+          <p className="sm">{MODE_COPY[sk] || MODE_COPY.off}</p>
+          <p className="mut">Your mode changes automatically with your schedule — Working mode during reply
+            windows, Family Time at your personal block, and End of day once your working hours finish.
+            {sk !== 'window' && nx ? ` Next reply window ${Avail.describe(nx)}.` : ''}</p>
+        </section>
 
         <section className="card span-2" style={{ background: 'var(--sage-s)', border: 0 }}>
           <div className="row sp"><h3>🌿 Well-being tip</h3><button className="btn ghost sm" onClick={nextTip}>Next tip</button></div>
