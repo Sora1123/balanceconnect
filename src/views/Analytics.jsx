@@ -2,7 +2,7 @@ import React from 'react';
 import { useStore } from '../store.jsx';
 import { IllLaptop } from '../components/ui.jsx';
 import { addDays, dur, pct } from '../lib/utils.js';
-import { range, metrics, usageBuckets, USAGE_APPS } from '../lib/analytics.js';
+import { range, metrics, usageBuckets } from '../lib/analytics.js';
 
 const PERIODS = [['week', 'This week'], ['month', 'This month'], ['year', 'This year']];
 
@@ -17,39 +17,67 @@ function Kpi({ value, label, help }) {
   );
 }
 
-// Accessible SVG bar chart of total app time per bucket (day or month).
-function UsageChart({ buckets, period }) {
-  const W = 320, H = 150, padL = 28, padR = 8, padT = 10, padB = 20;
+// Accessible SVG multi-line chart of app time per bucket (day or month).
+// Draws one line per app plus a Total line (5 lines). Fills the full container
+// width (measured) at a fixed pixel height, so the plot uses all the space
+// while axis/labels stay at a readable, non-stretched size.
+function UsageChart({ data, period }) {
+  const { buckets, apps } = data;
+  const wrapRef = React.useRef(null);
+  const [W, setW] = React.useState(720);
+  React.useEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return;
+    const update = () => setW(Math.max(280, Math.round(el.clientWidth)));
+    update();
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(update) : null;
+    if (ro) ro.observe(el); else window.addEventListener('resize', update);
+    return () => { if (ro) ro.disconnect(); else window.removeEventListener('resize', update); };
+  }, []);
+
+  const H = 200, padL = 34, padR = 12, padT = 12, padB = 24;
   const n = buckets.length;
   const innerW = W - padL - padR, innerH = H - padT - padB;
+  // Total line sits above every app line, so it defines the y-axis top.
   const mx = Math.max(1, ...buckets.map((b) => b.total));
-  // Nice round y-axis top in minutes.
-  const steps = [15, 30, 60, 90, 120, 180, 240, 300, 360, 480, 600, 720, 960, 1200];
+  const steps = [15, 30, 60, 90, 120, 180, 240, 300, 360, 480, 600, 720, 960, 1200, 1800, 2400];
   const niceTop = steps.find((s) => s >= mx) || Math.ceil(mx / 60) * 60;
+  const x = (i) => padL + (n <= 1 ? innerW / 2 : (i / (n - 1)) * innerW);
   const y = (v) => padT + innerH - (v / niceTop) * innerH;
-  const bw = (innerW / n) * 0.62;
-  const bx = (i) => padL + (i + 0.5) * (innerW / n) - bw / 2;
   const gridVals = [0, Math.round(niceTop / 2), niceTop];
   const fmtAxis = (m) => m >= 60 ? (m / 60) + 'h' : m + 'm';
   const labelEvery = Math.ceil(n / (period === 'year' ? 12 : 7));
-  const summary = `Total app time by ${period === 'year' ? 'month' : 'day'}. ` +
-    buckets.map((b) => `${b.l || ''}: ${Math.round(b.total)} min`).filter((s) => !s.startsWith(':')).join(', ');
+
+  // One series per app (built-ins + user websites), plus Total.
+  const series = [
+    ...apps.map((app) => ({ key: app.key, label: app.label, color: app.color, get: (b) => b.apps[app.key] || 0 })),
+    { key: 'total', label: 'Total', color: 'var(--ink)', total: true, get: (b) => b.total },
+  ];
+  const line = (get) => buckets.map((b, i) => `${x(i)},${y(get(b))}`).join(' ');
+  const summary = `App time by ${period === 'year' ? 'month' : 'day'}. ` +
+    series.map((s) => `${s.label}: ${Math.round(buckets.reduce((a, b) => a + s.get(b), 0))} min`).join('; ');
 
   return (
-    <figure className="linechart" role="img" aria-label={summary} style={{ margin: 0, maxWidth: 560 }}>
-      <svg viewBox={`0 0 ${W} ${H}`} width="100%" preserveAspectRatio="xMidYMid meet" style={{ display: 'block', height: 'auto' }}>
+    <figure ref={wrapRef} className="linechart" role="img" aria-label={summary} style={{ margin: 0, width: '100%' }}>
+      {/* viewBox matches the measured pixel size 1:1 so text is never scaled/stretched. */}
+      <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={H} preserveAspectRatio="xMinYMin meet" style={{ display: 'block' }}>
         {gridVals.map((v, i) => (
           <g key={i}>
             <line x1={padL} x2={W - padR} y1={y(v)} y2={y(v)} stroke="var(--line)" strokeWidth="1" />
-            <text x={padL - 4} y={y(v) + 3} textAnchor="end" fontSize="8" fill="var(--muted)">{fmtAxis(v)}</text>
+            <text x={padL - 6} y={y(v) + 3} textAnchor="end" fontSize="11" fill="var(--muted)">{fmtAxis(v)}</text>
           </g>
         ))}
-        {buckets.map((b, i) => (
-          <rect key={i} x={bx(i)} y={y(b.total)} width={bw} height={Math.max(0, innerH - (y(b.total) - padT))} rx="1.5" fill="var(--sage)" />
+        {series.map((s) => (
+          <polyline key={s.key} points={line(s.get)} fill="none" stroke={s.color}
+            strokeWidth={s.total ? 2.5 : 1.8} strokeDasharray={s.total ? '5 3' : undefined}
+            strokeLinejoin="round" strokeLinecap="round" opacity={s.total ? 0.9 : 1} />
         ))}
+        {series.map((s) => buckets.map((b, i) => (
+          <circle key={s.key + i} cx={x(i)} cy={y(s.get(b))} r={s.total ? 2.6 : 2} fill={s.color} />
+        )))}
         {buckets.map((b, i) => (
           (i % labelEvery === 0 || i === n - 1) && b.l
-            ? <text key={i} x={bx(i) + bw / 2} y={H - 6} textAnchor="middle" fontSize="8" fill="var(--muted)">{b.l}</text>
+            ? <text key={i} x={x(i)} y={H - 8} textAnchor="middle" fontSize="11" fill="var(--muted)">{b.l}</text>
             : null
         ))}
       </svg>
@@ -101,7 +129,7 @@ export default function Analytics() {
   const enough = M.n >= 3;
 
   const U = usageBuckets(S, p, a, b);
-  const usageMax = Math.max(1, ...USAGE_APPS.map((x) => U.totals[x.key] || 0));
+  const usageMax = Math.max(1, ...U.apps.map((x) => U.totals[x.key] || 0));
   const perLabel = p === 'week' ? 'day' : p === 'month' ? 'day' : 'month';
 
   const workPct = pct(M.work, M.work + M.famMin);
@@ -132,6 +160,29 @@ export default function Analytics() {
         </section>
       ) : (
         <>
+          <section className="card">
+            <div className="row sp">
+              <h3>Time in apps</h3>
+              <span className="mut">{U.grand >= 1 ? dur(U.grand) + ' total' : '—'}</span>
+            </div>
+            <p className="mut">App time per {perLabel} across {p === 'week' ? 'this week' : p === 'month' ? 'this month' : 'this year'} — one line per app, plus the daily total.</p>
+            <div className="row wrap sm" style={{ gap: 12, marginBottom: 4 }}>
+              {U.apps.map((app) => (
+                <span key={app.key} className="row" style={{ gap: 6 }}>
+                  <span style={{ width: 14, height: 3, background: app.color, borderRadius: 2, display: 'inline-block' }} />{app.label}
+                </span>
+              ))}
+              <span className="row" style={{ gap: 6 }}>
+                <span style={{ width: 14, height: 0, borderTop: '2.5px dashed var(--ink)', display: 'inline-block' }} />Total
+              </span>
+            </div>
+            <UsageChart data={U} period={p} />
+            <div className="row sp sm" style={{ marginTop: 6 }}>
+              <span>Total this {p}</span>
+              <span style={{ fontVariantNumeric: 'tabular-nums' }}>{U.grand >= 1 ? dur(U.grand) : '0 min'}</span>
+            </div>
+          </section>
+
           <section className="card" style={{ background: 'var(--lav)', border: 0 }}>
             <div className="row sp">
               <h3>✨ AI insights</h3>
@@ -158,22 +209,9 @@ export default function Analytics() {
           </div>
 
           <section className="card">
-            <div className="row sp">
-              <h3>Time in apps</h3>
-              <span className="mut">{U.grand >= 1 ? dur(U.grand) + ' total' : '—'}</span>
-            </div>
-            <p className="mut">Total app time per {perLabel} across {p === 'week' ? 'this week' : p === 'month' ? 'this month' : 'this year'}.</p>
-            <UsageChart buckets={U.buckets} period={p} />
-            <div className="row sp sm" style={{ marginTop: 6 }}>
-              <span>Total this {p}</span>
-              <span style={{ fontVariantNumeric: 'tabular-nums' }}>{U.grand >= 1 ? dur(U.grand) : '0 min'}</span>
-            </div>
-          </section>
-
-          <section className="card">
             <h3>Where the time went</h3>
             <p className="mut">How your total app time this {p} splits across each app.</p>
-            {USAGE_APPS.map((app) => {
+            {U.apps.map((app) => {
               const mins = U.totals[app.key] || 0;
               return (
                 <div key={app.key} className="row" style={{ gap: 12 }}>
@@ -185,8 +223,8 @@ export default function Analytics() {
                 </div>
               );
             })}
-            <p className="mut">BalanceConnect time is measured on this device. Google Docs, Notion and email
-              figures are example data — a web app can’t read other apps’ usage without a browser extension or device permissions.</p>
+            <p className="mut">BalanceConnect time is measured on this device. Other apps and the websites you
+              add are shown with example data — a web app can’t read other apps’ usage without a browser extension or device permissions.</p>
           </section>
 
           <section className="card">

@@ -27,14 +27,14 @@ export function StoreProvider({ children }) {
     // Restore any demo time offset so the chosen demo day survives a refresh.
     setOffset(Sref.current.demoOffset || 0);
     if (!hadStored) {
-      // First run: skip the forced setup screen. Land on the dashboard with the
-      // demo data ready to explore; setup stays available under More → Working
-      // preferences.
-      Sref.current.onboarded = true;
+      // First run: start with setup so new users configure their working hours,
+      // response windows, Family Time and so on before using the app. Persist
+      // the seed now; saving the setup form flips `onboarded` and lands on Home.
+      Sref.current.onboarded = false;
       saveState(Sref.current);
     }
     applyTheme(Sref.current.theme);
-    setRoute({ name: 'home' });
+    setRoute({ name: Sref.current.onboarded ? 'home' : 'onboard' });
     setMounted(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

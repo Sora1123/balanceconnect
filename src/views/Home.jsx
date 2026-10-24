@@ -6,16 +6,8 @@ import { statusNow, nextFromNow, Avail } from '../lib/availability.js';
 import { openMsgs } from '../lib/triage.js';
 import { lessonsOn, upcomingOccurrence } from '../lib/schedule.js';
 import { TIPS } from '../lib/state.js';
+import { usageApps } from '../lib/analytics.js';
 
-// App-usage sources shown on Home. BalanceConnect time is measured for real;
-// the external apps are illustrative demo figures (a web app can't read other
-// apps' usage).
-const USAGE_APPS = [
-  { key: 'gdocs', label: 'Google Docs', icon: '📄', color: '#4285F4' },
-  { key: 'gclass', label: 'Notion', icon: '🗂️', color: '#111111' },
-  { key: 'gmail', label: 'Gmail & Outlook', icon: '✉️', color: '#EA4335' },
-  { key: 'bc', label: 'BalanceConnect', icon: '🌿', color: 'var(--pur)' },
-];
 
 // Plain-language description of each auto-derived mode (keyed by statusNow()).
 // Modes switch on their own with the clock — there are no manual toggles.
@@ -56,10 +48,11 @@ export default function Home() {
   ];
   const doneCount = Object.values(tk).filter(Boolean).length;
 
-  // App usage for today.
+  // App usage for today (built-in apps + any websites the user added).
+  const appsList = usageApps(S);
   const usage = S.usage[todayKey] || {};
-  const usageTotal = USAGE_APPS.reduce((a, x) => a + (usage[x.key] || 0), 0);
-  const usageMax = Math.max(1, ...USAGE_APPS.map((x) => usage[x.key] || 0));
+  const usageTotal = appsList.reduce((a, x) => a + (usage[x.key] || 0), 0);
+  const usageMax = Math.max(1, ...appsList.map((x) => usage[x.key] || 0));
 
   const toggleTask = (k, checked) => mutate((S) => {
     const key = dk(new Date());
@@ -185,7 +178,7 @@ export default function Home() {
             <h3>Time in apps today</h3>
             <span className="mut">{usageTotal >= 1 ? dur(usageTotal) + ' total' : '—'}</span>
           </div>
-          {USAGE_APPS.map((a) => {
+          {appsList.map((a) => {
             const mins = usage[a.key] || 0;
             return (
               <div key={a.key} className="row" style={{ gap: 12 }}>
@@ -197,8 +190,8 @@ export default function Home() {
               </div>
             );
           })}
-          <p className="mut">BalanceConnect time is measured on this device. Google Docs, Notion and email
-            figures are example data — a web app can’t read other apps’ usage without a browser extension or device permissions.</p>
+          <p className="mut">BalanceConnect time is measured on this device. Other apps and the websites you
+            add in settings are shown with example data — a web app can’t read other apps’ usage without a browser extension or device permissions.</p>
         </section>
 
         <section className="card span-2" aria-label="Current mode">
@@ -210,6 +203,14 @@ export default function Home() {
           <p className="mut">Your mode changes automatically with your schedule — Working mode during reply
             windows, Family Time at your personal block, and End of day once your working hours finish.
             {sk !== 'window' && nx ? ` Next reply window ${Avail.describe(nx)}.` : ''}</p>
+          {S.shutdowns[todayKey]
+            ? (
+              <div className="row sp" style={{ marginTop: 4 }}>
+                <span className="sm">🌙 You’ve wrapped up for today.</span>
+                <button className="btn ghost sm" onClick={() => go('shutdown')}>Review</button>
+              </div>
+            )
+            : <button className="btn full" style={{ marginTop: 4 }} onClick={() => go('shutdown')}>Finish for today →</button>}
         </section>
 
         <section className="card span-2" style={{ background: 'var(--sage-s)', border: 0 }}>

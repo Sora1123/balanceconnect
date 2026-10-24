@@ -9,9 +9,9 @@ const GROUPS = [
     items: [
       { to: 'settings:work', icon: '🕒', label: 'Working hours', desc: 'The days and times you work' },
       { to: 'settings:auto', icon: '💬', label: 'Automatic replies', desc: 'What senders get when you’re away' },
-      { to: 'settings:notif', icon: '🔔', label: 'Notifications', desc: 'Alerts and how urgent messages are handled' },
       { to: 'settings:family', icon: '💛', label: 'Family time', desc: 'When to switch off and be present' },
       { to: 'settings:quiet', icon: '🌙', label: 'Quiet hours', desc: 'Overnight hours when you’re offline' },
+      { to: 'settings:shutdown', icon: '🌙', label: 'End-of-day checklist', desc: 'The steps you tick off before finishing' },
     ],
   },
   {
@@ -31,12 +31,13 @@ const THEMES = [
 ];
 
 export default function More() {
-  const { go, theme, setTheme } = useStore();
+  const { S, go, theme, setTheme, mutate } = useStore();
   const nav = (to) => {
     const [r, s] = to.split(':');
     if (r === 'settings') go('settings', { sec: s });
     else go(r);
   };
+  const toggleDemo = (checked) => mutate((S) => { S.includeDemo = checked; });
 
   return (
     <>
@@ -60,6 +61,13 @@ export default function More() {
             </button>
           ))}
         </div>
+      </section>
+
+      {/* Global demo-data toggle */}
+      <section className="card">
+        <h3>Demo data</h3>
+        <p className="mut">BalanceConnect comes pre-filled with example clients, emails and history so you can explore it. Turn this off to hide the demo everywhere and see only your own activity.</p>
+        <label className="tog"><input type="checkbox" checked={S.includeDemo} onChange={(e) => toggleDemo(e.target.checked)} />Show demo data</label>
       </section>
 
       {GROUPS.map((group) => (

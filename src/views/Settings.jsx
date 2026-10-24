@@ -3,6 +3,7 @@ import { useStore } from '../store.jsx';
 import { Head, IllLaptop } from '../components/ui.jsx';
 import { DAYS, ORDER, toMin } from '../lib/utils.js';
 import { Avail } from '../lib/availability.js';
+import { makeTrackedApp } from '../lib/state.js';
 
 // Deep-set a dotted path on an object (clone-friendly).
 function setPath(o, k, v) {
@@ -23,8 +24,6 @@ function validate(D) {
   if (!D.name.trim()) e.push('Add your name.');
   if (!ORDER.some((i) => D.days[i].on)) e.push('Choose at least one working day.');
   ORDER.forEach((i) => { const d = D.days[i]; if (d.on && toMin(d.s) >= toMin(d.e)) e.push(`${DAYS[i]}: end time must be after start time.`); });
-  D.windows.forEach((w, i) => { if (!w.s || !w.e || toMin(w.s) >= toMin(w.e)) e.push(`Response window ${i + 1}: end must be after start (same day).`); });
-  if (!D.windows.length) e.push('Add at least one response window.');
   if (D.family.on && D.family.s === D.family.e) e.push('Family time start and end can’t be the same.');
   if (D.quiet.on && D.quiet.s === D.quiet.e) e.push('Quiet hours start and end can’t be the same.');
   if (D.auto && !D.tpl.trim()) e.push('Write an automatic reply message or turn automatic replies off.');
@@ -33,6 +32,8 @@ function validate(D) {
 
 function SettingsForm({ draft, setDraft, onSave, sec }) {
   const [errors, setErrors] = useState([]);
+  const [siteInput, setSiteInput] = useState('');
+  const [siteErr, setSiteErr] = useState('');
   const errRef = useRef(null);
   const D = draft;
 
@@ -42,14 +43,35 @@ function SettingsForm({ draft, setDraft, onSave, sec }) {
   }, [sec]);
 
   const upd = (k, v) => setDraft((prev) => { const next = clone(prev); setPath(next, k, v); return next; });
-  const winAdd = () => setDraft((prev) => { const next = clone(prev); next.windows.push({ s: '12:00', e: '13:00' }); return next; });
-  const winDel = (i) => setDraft((prev) => { const next = clone(prev); next.windows.splice(i, 1); return next; });
+
+  const siteAdd = () => {
+    const app = makeTrackedApp(siteInput);
+    if (!app) { setSiteErr('Enter a website address, e.g. figma.com'); return; }
+    if ((D.trackedApps || []).some((a) => a.key === app.key)) { setSiteErr('That website is already on the list.'); return; }
+    setDraft((prev) => { const next = clone(prev); next.trackedApps = [...(next.trackedApps || []), app]; return next; });
+    setSiteInput(''); setSiteErr('');
+  };
+  const siteDel = (key) => setDraft((prev) => { const next = clone(prev); next.trackedApps = (next.trackedApps || []).filter((a) => a.key !== key); return next; });
+
+  const shutEdit = (key, label) => setDraft((prev) => {
+    const next = clone(prev);
+    next.shutdownItems = (next.shutdownItems || []).map((it) => (it.key === key ? { ...it, label } : it));
+    return next;
+  });
+  const shutDel = (key) => setDraft((prev) => { const next = clone(prev); next.shutdownItems = (next.shutdownItems || []).filter((it) => it.key !== key); return next; });
+  const shutAdd = () => setDraft((prev) => {
+    const next = clone(prev);
+    next.shutdownItems = [...(next.shutdownItems || []), { key: `item:${Math.random().toString(36).slice(2, 8)}`, label: '' }];
+    return next;
+  });
 
   const save = () => {
     const er = validate(D);
     if (er.length) { setErrors(er); setTimeout(() => errRef.current?.scrollIntoView({ block: 'center' }), 0); return; }
     setErrors([]);
-    onSave(D);
+    // Drop any blank end-of-day items before saving.
+    const cleaned = { ...D, shutdownItems: (D.shutdownItems || []).filter((it) => it.label.trim()).map((it) => ({ key: it.key, label: it.label.trim() })) };
+    onSave(cleaned);
   };
 
   const cb = (k) => ({ type: 'checkbox', checked: !!getPath(D, k), onChange: (e) => upd(k, e.target.checked) });
@@ -71,20 +93,6 @@ function SettingsForm({ draft, setDraft, onSave, sec }) {
             <input type="time" value={D.days[i].e} onChange={(e) => upd(`days.${i}.e`, e.target.value)} aria-label={`${DAYS[i]} end`} />
           </div>
         ))}
-      </section>
-
-      <section className="card">
-        <h3>Response windows</h3>
-        <p className="mut">When you plan to reply to messages on working days.</p>
-        {D.windows.map((w, i) => (
-          <div key={i} className="row">
-            <input type="time" value={w.s} onChange={(e) => upd(`windows.${i}.s`, e.target.value)} aria-label="Window start" />
-            <span className="mut">to</span>
-            <input type="time" value={w.e} onChange={(e) => upd(`windows.${i}.e`, e.target.value)} aria-label="Window end" />
-            <button className="btn danger sm" onClick={() => winDel(i)} aria-label="Remove window">✕</button>
-          </div>
-        ))}
-        <button className="btn ghost sm" onClick={winAdd}>+ Add window</button>
       </section>
 
       <section className="card" id="sec-family">
@@ -124,16 +132,46 @@ function SettingsForm({ draft, setDraft, onSave, sec }) {
         <div className="bub a" style={{ maxWidth: '100%' }}>{previewAR(D)}</div>
       </section>
 
-      <section className="card" id="sec-notif">
-        <h3>Notifications</h3>
-        <label className="tog sm"><input {...cb('notif')} />Show in-app alerts during working time</label>
-        <p className="sm"><b>Urgent messages</b></p>
-        {[['hold', 'Hold until my next window (respect all boundaries)'], ['except_family', 'Alert me in quiet hours, but not during Family Time'], ['always', 'Always alert me, even in Family Time']].map(([k, l]) => (
-          <label key={k} className="tog sm">
-            <input type="radio" name="urg" value={k} checked={D.urgent === k} onChange={() => upd('urgent', k)} style={{ width: 18, height: 18, margin: 0 }} />{l}
-          </label>
+      <section className="card" id="sec-apps">
+        <h3>Websites to measure</h3>
+        <p className="mut">Add web apps you use for work (e.g. figma.com, notion.so) to see how much time you spend on each in your analytics.</p>
+        {(D.trackedApps || []).length > 0 && (D.trackedApps || []).map((a) => (
+          <div key={a.key} className="row sp" style={{ gap: 8 }}>
+            <span className="sm"><span aria-hidden="true">🌐 </span>{a.label}<span className="mut"> · {a.url}</span></span>
+            <button className="btn danger sm" onClick={() => siteDel(a.key)} aria-label={`Remove ${a.label}`}>✕</button>
+          </div>
         ))}
-        <label className="tog sm"><input {...cb('quietAfterShutdown')} />Go offline until the next window after my shutdown routine</label>
+        <div className="row" style={{ gap: 8 }}>
+          <input
+            className="grow"
+            value={siteInput}
+            onChange={(e) => { setSiteInput(e.target.value); if (siteErr) setSiteErr(''); }}
+            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); siteAdd(); } }}
+            placeholder="figma.com"
+            aria-label="Website address"
+          />
+          <button type="button" className="btn ghost" onClick={siteAdd}>+ Add</button>
+        </div>
+        {siteErr && <p className="sm" style={{ color: 'var(--rose)' }}>{siteErr}</p>}
+        <p className="mut">Note: a web app can’t read other sites’ usage directly — in this demo these appear with example data.</p>
+      </section>
+
+      <section className="card" id="sec-shutdown">
+        <h3>End-of-day checklist</h3>
+        <p className="mut">The steps you tick off before finishing for the day. Edit the wording, remove any you don’t need, or add your own.</p>
+        {(D.shutdownItems || []).map((it) => (
+          <div key={it.key} className="row" style={{ gap: 8 }}>
+            <input
+              className="grow"
+              value={it.label}
+              onChange={(e) => shutEdit(it.key, e.target.value)}
+              placeholder="Checklist item"
+              aria-label="Checklist item"
+            />
+            <button className="btn danger sm" onClick={() => shutDel(it.key)} aria-label="Remove checklist item">✕</button>
+          </div>
+        ))}
+        <button type="button" className="btn ghost sm" onClick={shutAdd}>+ Add item</button>
       </section>
 
       <div ref={errRef}>{errors.length > 0 && <div className="err">{errors.map((e, i) => <React.Fragment key={i}>{e}<br /></React.Fragment>)}</div>}</div>

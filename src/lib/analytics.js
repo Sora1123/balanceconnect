@@ -1,17 +1,31 @@
 // Analytics service: date ranges, metrics aggregation, chart buckets.
 import { sod, addDays, atDate, toMin, dk, DAYS } from './utils.js';
 
-// The apps tracked in S.usage[dateKey] (minutes). Keep in sync with Home.
+// The only app measured for real on this device. Everything else the user
+// measures lives in settings.trackedApps (see usageApps).
 export const USAGE_APPS = [
   { key: 'bc', label: 'BalanceConnect', icon: '🌿', color: 'var(--pur)' },
-  { key: 'gdocs', label: 'Google Docs', icon: '📄', color: '#4285F4' },
-  { key: 'gclass', label: 'Google Classroom', icon: '🎓', color: '#1E8E3E' },
-  { key: 'gmail', label: 'Gmail', icon: '✉️', color: '#EA4335' },
 ];
 
-// Aggregate per-app usage over [a, b) into chart buckets plus per-app totals.
-// Respects the "include demo history" toggle via S.includeDemo.
+// Palette for tracked websites that don't carry their own colour.
+const WEB_COLORS = ['#4285F4', '#111111', '#EA4335', '#F59E0B', '#8B5CF6', '#10B981', '#EC4899', '#0EA5E9', '#EF4444'];
+
+// The full list of apps to chart: BalanceConnect (real) plus every website the
+// user is measuring in settings. Each tracked site keeps its own colour/icon
+// if set, otherwise gets one cycled from the palette.
+export function usageApps(S) {
+  const tracked = (S.settings && Array.isArray(S.settings.trackedApps)) ? S.settings.trackedApps : [];
+  return [
+    ...USAGE_APPS,
+    ...tracked.map((a, i) => ({ key: a.key, label: a.label, icon: a.icon || '🌐', color: a.color || WEB_COLORS[i % WEB_COLORS.length], web: true })),
+  ];
+}
+
+// Aggregate per-app usage over [a, b) into chart buckets. Each bucket carries
+// a per-app minute value plus a `total`, and we also return per-app totals and
+// a grand total. Respects the "include demo history" toggle via S.includeDemo.
 export function usageBuckets(S, p, a, b) {
+  const apps = usageApps(S);
   const usage = S.usage || {};
   const dayMins = (key) => {
     const u = usage[key];
@@ -27,21 +41,22 @@ export function usageBuckets(S, p, a, b) {
     for (let d = new Date(a); d < b; d = addDays(d, 1)) spans.push([p === 'week' ? DAYS[d.getDay()] : (d.getDate() % 5 === 1 ? d.getDate() : ''), new Date(d), addDays(d, 1)]);
   }
 
-  const totals = Object.fromEntries(USAGE_APPS.map((app) => [app.key, 0]));
+  const totals = Object.fromEntries(apps.map((app) => [app.key, 0]));
   let grand = 0;
 
   const bkts = spans.map(([l, s, e]) => {
+    const perApp = Object.fromEntries(apps.map((app) => [app.key, 0]));
     let total = 0;
     for (let d = new Date(s); d < e; d = addDays(d, 1)) {
       const u = dayMins(dk(d));
       if (!u) continue;
-      for (const app of USAGE_APPS) { const m = u[app.key] || 0; total += m; totals[app.key] += m; }
+      for (const app of apps) { const m = u[app.key] || 0; perApp[app.key] += m; total += m; totals[app.key] += m; }
     }
     grand += total;
-    return { l, total };
+    return { l, total, apps: perApp };
   });
 
-  return { buckets: bkts, totals, grand };
+  return { buckets: bkts, totals, grand, apps };
 }
 
 export function range(p, off = 0) {

@@ -1,8 +1,8 @@
 // Stateful workflow actions: family time, shutdown routine.
-import { dk, addDays } from './utils.js';
+import { dk } from './utils.js';
 import { Avail } from './availability.js';
 import { act } from './intake.js';
-import { SHUT } from './state.js';
+import { defaults } from './state.js';
 
 export function startFamily(S, manual) {
   S.family = { active: true, manual, start: Date.now(), endedOn: null };
@@ -17,7 +17,9 @@ export function endFamily(S, early) {
 // Completes the shutdown routine. `chk` is the current checklist state (map of id->bool).
 export function completeShutdown(S, chk) {
   const k = dk(new Date());
-  S.shutdowns[k] = { items: SHUT.filter(([i]) => chk[i]).map(([i]) => i), at: Date.now() };
+  const items = (S.settings && Array.isArray(S.settings.shutdownItems) && S.settings.shutdownItems.length)
+    ? S.settings.shutdownItems : defaults().shutdownItems;
+  S.shutdowns[k] = { items: items.filter((it) => chk[it.key]).map((it) => it.key), at: Date.now() };
   act(S, 'shutdown', Date.now());
   if (S.settings.quietAfterShutdown) {
     const n = Avail.next(new Date(Date.now() + 6e4), S.settings);

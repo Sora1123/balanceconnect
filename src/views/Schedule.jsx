@@ -143,32 +143,104 @@ function RepeatBadge({ repeat }) {
   return <span className="chip" style={{ textTransform: 'none' }} title={`Repeats ${repeatLabel(repeat).toLowerCase()}`}>🔁 {repeatLabel(repeat)}</span>;
 }
 
-function DayItems({ dateKey, onEdit }) {
-  const { S, stuName } = useStore();
-  const st = S.settings;
-  const D = atDate(dateKey, '12:00'), w = st.days[D.getDay()];
-  const I = [];
-  lessonsOn(S.lessons, dateKey).forEach((l) => I.push([l.s,
-    <div key={'l' + l.occurrenceOf} className="blk lesson">
-      <span className="tm">{fmtT(l.s)}<br />{fmtT(l.e)}</span>
-      <div className="grow">
-        <div className="row wrap" style={{ gap: 6 }}><b>{stuName(l.sid)}</b><RepeatBadge repeat={l.repeat} /></div>
-        <p className="sm">📘 {l.subject}</p>
-      </div>
-      <button className="btn ghost sm" onClick={() => onEdit(l.occurrenceOf, dateKey)}>Edit</button>
-    </div>]));
-  if (w.on) st.windows.forEach((x, idx) => I.push([x.s,
-    <div key={'w' + idx} className="blk win"><span className="tm">{fmtT(x.s)}<br />{fmtT(x.e)}</span><div><b>Reply window</b><p className="sm">💬 Catch up on emails</p></div></div>]));
-  if (st.family.on) I.push([st.family.s,
-    <div key="fam" className="blk fam"><span className="tm">{fmtT(st.family.s)}<br />{fmtT(st.family.e)}</span><div><b>Family Time</b><p className="sm">💛 Personal, private to you</p></div></div>]);
-  if (st.quiet.on) I.push([st.quiet.s,
-    <div key="qt" className="blk qt"><span className="tm">{fmtT(st.quiet.s)}<br />{fmtT(st.quiet.e)}</span><div><b>Quiet hours</b><p className="sm">🌙 Offline, automatic replies on</p></div></div>]);
-  I.sort((a, b) => toMin(a[0]) - toMin(b[0]));
-  return (
+// Visible calendar window and per-hour pixel height.
+const CAL_START = 6, CAL_END = 24, HOUR_PX = 48;
+const clampMin = (m) => Math.max(CAL_START * 60, Math.min(CAL_END * 60, m));
+const topOf = (min) => ((clampMin(min) - CAL_START * 60) / 60) * HOUR_PX;
+const heightOf = (s, e) => Math.max(16, topOf(e) - topOf(s));
+
+// Build the positioned events for a single day. Overnight ranges (e.g. quiet
+// hours 21:00–08:00) are split so each day only shows the part that falls
+// inside it.
+function dayEvents(S, dateKey, onEdit, stuName) {
+  const st = S.settings, D = atDate(dateKey, '12:00'), w = st.days[D.getDay()];
+  const ev = [];
+  // Background boundaries first (so appointments sit on top).
+  if (st.quiet.on) {
+    const qs = toMin(st.quiet.s), qe = toMin(st.quiet.e);
+    const spans = qs < qe ? [[qs, qe]] : [[0, qe], [qs, 24 * 60]]; // overnight → morning + evening part
+    spans.forEach(([s, e], i) => ev.push({ key: `qt${i}`, cls: 'ev-qt', s, e, title: 'Quiet hours', sub: '🌙 Offline' }));
+  }
+  if (w.on) st.windows.forEach((x, i) => ev.push({ key: `win${i}`, cls: 'ev-win', s: toMin(x.s), e: toMin(x.e), title: 'Reply window', sub: '💬 Catch up on emails' }));
+  if (st.family.on) {
+    const fs = toMin(st.family.s), fe = toMin(st.family.e);
+    const spans = fs < fe ? [[fs, fe]] : [[0, fe], [fs, 24 * 60]];
+    spans.forEach(([s, e], i) => ev.push({ key: `fam${i}`, cls: 'ev-fam', s, e, title: 'Family Time', sub: '💛 Personal' }));
+  }
+  lessonsOn(S.lessons, dateKey).filter((l) => S.includeDemo || !l.demo).forEach((l) => ev.push({
+    key: `l${l.occurrenceOf}`, cls: 'ev-appt', s: toMin(l.s), e: toMin(l.e),
+    title: stuName(l.sid), sub: `${fmtT(l.s)} · ${l.subject}`, repeat: l.repeat,
+    onClick: () => onEdit(l.occurrenceOf, dateKey),
+  }));
+  return ev;
+}
+
+function EventBlock({ e }) {
+  const style = { top: topOf(e.s), height: heightOf(e.s, e.e) };
+  const inner = (
     <>
-      <p className="mut">{w.on ? `Working ${fmtT(w.s)}–${fmtT(w.e)}` : 'Not a working day'}</p>
-      {I.length ? I.map(([, node]) => node) : <p className="mut">Nothing scheduled.</p>}
+      <b>{e.title}{e.repeat && e.repeat !== 'none' ? ' 🔁' : ''}</b>
+      {heightOf(e.s, e.e) >= 30 && <span className="cal-ev-sub">{e.sub}</span>}
     </>
+  );
+  return e.onClick
+    ? <button className={`cal-ev ${e.cls}`} style={style} onClick={e.onClick}>{inner}</button>
+    : <div className={`cal-ev ${e.cls}`} style={style}>{inner}</div>;
+}
+
+// A full-height time axis shared by day and week grids.
+function TimeAxis() {
+  const hours = [];
+  for (let h = CAL_START; h < CAL_END; h++) hours.push(h);
+  return (
+    <div className="cal-times">
+      <div className="cal-corner" />
+      {hours.map((h) => (
+        <div key={h} className="cal-hour-label" style={{ ['--cal-hour']: HOUR_PX + 'px' }}>
+          {fmtT(`${String(h).padStart(2, '0')}:00`)}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// One day column: header (optional) + positioned events over hour gridlines.
+function DayColumn({ S, dateKey, onEdit, stuName, showHead }) {
+  const x = atDate(dateKey, '12:00');
+  const isToday = dateKey === dk(new Date());
+  const ev = dayEvents(S, dateKey, onEdit, stuName);
+  const bodyH = (CAL_END - CAL_START) * HOUR_PX;
+  const lines = [];
+  for (let h = CAL_START; h < CAL_END; h++) lines.push(h);
+  // "Now" indicator only on today, within the visible window.
+  const now = new Date();
+  const nowMin = now.getHours() * 60 + now.getMinutes();
+  const showNow = isToday && nowMin >= CAL_START * 60 && nowMin <= CAL_END * 60;
+  return (
+    <div className="cal-col">
+      {showHead && (
+        <div className={`cal-col-head ${isToday ? 'today' : ''}`}>
+          {x.toLocaleDateString(undefined, { weekday: 'short' })}
+          <small>{x.getDate()}</small>
+        </div>
+      )}
+      <div className="cal-body" style={{ height: bodyH }}>
+        {lines.map((h, i) => i === 0 ? null : <div key={h} className="cal-gridline" style={{ top: (h - CAL_START) * HOUR_PX }} />)}
+        {showNow && <div className="cal-now" style={{ top: topOf(nowMin) }} />}
+        {ev.map((e) => <EventBlock key={e.key} e={e} />)}
+      </div>
+    </div>
+  );
+}
+
+function CalendarLegend() {
+  return (
+    <div className="cal-legend">
+      <span><span className="sw" style={{ background: 'var(--lav)' }} />Appointment</span>
+      <span><span className="sw" style={{ background: 'var(--sage-s)', border: '1px dashed var(--sage)' }} />Reply window</span>
+      <span><span className="sw" style={{ background: 'var(--peach-s)' }} />Family Time</span>
+      <span><span className="sw" style={{ background: 'var(--card-2)', border: '1px solid var(--line)' }} />Quiet hours</span>
+    </div>
   );
 }
 
@@ -205,30 +277,25 @@ export default function Schedule() {
 
   let body;
   if (mode === 'day') {
-    body = <DayItems dateKey={d} onEdit={openEdit} />;
+    body = (
+      <div className="cal cal-day">
+        <TimeAxis />
+        <div className="cal-cols">
+          <DayColumn S={S} dateKey={d} onEdit={openEdit} stuName={stuName} showHead={false} />
+        </div>
+      </div>
+    );
   } else {
     const mon = addDays(sod(D), -((D.getDay() + 6) % 7));
-    body = [...Array(7)].map((_, i) => {
-      const x = addDays(mon, i), k = dk(x);
-      const Ls = lessonsOn(S.lessons, k);
-      const w = st.days[x.getDay()];
-      const isToday = k === dk(new Date());
-      return (
-        <section key={k} className="card" style={{ padding: 12, gap: 6, outline: isToday ? '2px solid var(--pur)' : 'none' }}>
-          <div className="row sp"><b>{x.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })}{isToday ? ' · Today' : ''}</b>
-            <button className="btn ghost sm" onClick={() => patchRoute({ mode: 'day', date: k })}>Open day</button></div>
-          <p className="mut">{w.on ? `${fmtT(w.s)}–${fmtT(w.e)}` : 'Day off'}</p>
-          {Ls.length ? Ls.map((l) => (
-            <button key={l.occurrenceOf} className="blk lesson" style={{ padding: '6px 10px', width: '100%', border: 0, textAlign: 'left', cursor: 'pointer' }}
-              onClick={() => openEdit(l.occurrenceOf, k)}>
-              <span className="tm">{fmtT(l.s)}</span>
-              <span className="sm grow">{stuName(l.sid)} · {l.subject}</span>
-              {l.repeat && l.repeat !== 'none' && <span aria-hidden="true" title="Repeats">🔁</span>}
-            </button>
-          )) : <p className="mut sm">No appointments</p>}
-        </section>
-      );
-    });
+    const days = [...Array(7)].map((_, i) => dk(addDays(mon, i)));
+    body = (
+      <div className="cal cal-week">
+        <TimeAxis />
+        <div className="cal-cols">
+          {days.map((k) => <DayColumn key={k} S={S} dateKey={k} onEdit={openEdit} stuName={stuName} showHead />)}
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -245,7 +312,8 @@ export default function Schedule() {
           : 'Week of ' + addDays(sod(D), -((D.getDay() + 6) % 7)).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}</b>
         <button className="btn ghost sm" onClick={() => shift(1)} aria-label={mode === 'week' ? 'Next week' : 'Next day'}>→</button>
       </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>{body}</div>
+      <CalendarLegend />
+      {body}
       {sheet && <LessonSheet initial={sheet} onClose={closeSheet} />}
     </>
   );

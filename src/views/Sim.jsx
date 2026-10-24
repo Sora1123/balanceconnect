@@ -5,7 +5,6 @@ import { fmtD, dk, atDate, addDays, minOf, toMin } from '../lib/utils.js';
 import { Avail } from '../lib/availability.js';
 import { receive } from '../lib/intake.js';
 import { completeShutdown } from '../lib/actions.js';
-import { SHUT } from '../lib/state.js';
 
 const SCN_LABELS = ['In response window', 'After working hours', 'During family time', 'Urgent in quiet hours', 'Non-working day', 'Before next window', 'Complete shutdown'];
 
@@ -16,23 +15,23 @@ function runScenario(S, save, stuName, n) {
   const free = (from, ok) => { let t = new Date(from); for (let i = 0; i < 288 * 7; i++) { if (ok(t)) return t; t = new Date(+t + 3e5); } return from; };
 
   switch (n) {
-    case 1: title = 'During a response window'; at = Avail.next(now, st) || now; sid = 'emma'; text = 'Is our working session still on this week?'; break;
-    case 2: title = 'After working hours'; at = free(now, (t) => !Avail.working(t, st) && !Avail.windowTime(t, st) && !Avail.inFamily(t, st) && !Avail.inQuiet(t, st) && st.days[t.getDay()].on && minOf(t) > toMin(st.days[t.getDay()].s)); sid = 'kenta'; text = 'Quick question about the latest deliverable for next week.'; break;
-    case 3: title = 'During family time'; at = free(now, (t) => Avail.inFamily(t, st)); sid = 'emma'; text = 'Thanks for today! I’ve uploaded the brand assets.'; break;
-    case 4: title = 'Urgent, during quiet hours'; at = free(now, (t) => Avail.inQuiet(t, st)); sid = 'aiko'; text = 'URGENT: our launch is tomorrow morning and the homepage still shows the old logo!'; break;
+    case 1: title = 'During a response window'; at = Avail.next(now, st) || now; sid = 'emma'; text = 'Is the vocab quiz still on for our next lesson?'; break;
+    case 2: title = 'After working hours'; at = free(now, (t) => !Avail.working(t, st) && !Avail.windowTime(t, st) && !Avail.inFamily(t, st) && !Avail.inQuiet(t, st) && st.days[t.getDay()].on && minOf(t) > toMin(st.days[t.getDay()].s)); sid = 'kenta'; text = 'Quick question about the textbook chapter for next week.'; break;
+    case 3: title = 'During family time'; at = free(now, (t) => Avail.inFamily(t, st)); sid = 'emma'; text = 'Thanks for today! I’ve uploaded my writing practice.'; break;
+    case 4: title = 'Urgent, during quiet hours'; at = free(now, (t) => Avail.inQuiet(t, st)); sid = 'aiko'; text = 'URGENT: my IB mock is tomorrow morning and I can’t find the essay structure notes!'; break;
     case 5: {
       title = 'On a non-working day'; let d = null;
       for (let i = 0; i < 7; i++) { const x = addDays(now, i); if (!st.days[x.getDay()].on) { d = x; break; } }
       if (!d) return { title, info: 'Every day is a working day, so there is no non-working day to test.' };
-      at = atDate(dk(d), '12:00'); sid = 'olivia'; text = 'Hi, could we book an intro call next week?'; break;
+      at = atDate(dk(d), '12:00'); sid = 'olivia'; text = 'Hi, could I book a trial lesson next week?'; break;
     }
     case 6: {
       title = 'Just before the next window'; const nx = Avail.next(addDays(now, 0), st);
       at = nx ? new Date(+nx - 30 * 6e4) : now; if (Avail.windowTime(at, st)) at = new Date(+at - 60 * 6e4);
-      sid = 'kenta'; text = 'Can we move tomorrow’s review 30 minutes later?'; break;
+      sid = 'kenta'; text = 'Can we move tomorrow’s lesson 30 minutes later?'; break;
     }
     case 7: {
-      const chk = {}; SHUT.forEach(([i]) => { chk[i] = true; });
+      const chk = {}; (S.settings.shutdownItems || []).forEach((it) => { chk[it.key] = true; });
       completeShutdown(S, chk); save();
       return { title: 'Shutdown routine completed', info: `Saved at ${fmtD(Date.now())}. ${S.offlineUntil > Date.now() ? 'Quiet mode on until ' + Avail.describe(new Date(S.offlineUntil)) + '.' : 'Quiet-after-shutdown is off in Settings.'}` };
     }
@@ -67,7 +66,7 @@ export default function Sim() {
   const { S, mutate, save, toast, stuName } = useStore();
   const [log, setLog] = useState([]);
   const [tSid, setTSid] = useState(S.students[0]?.id);
-  const [tTxt, setTTxt] = useState('Hi Mika, quick question about today’s deliverable.');
+  const [tTxt, setTTxt] = useState('Hi Mika, quick question about today’s homework.');
   const [tAt, setTAt] = useState('');
 
   const scn = (i) => {

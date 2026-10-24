@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { sanitizeState, sanitizeSettings, defaults, seed } from '../src/lib/state.js';
-import { range, metrics, buckets } from '../src/lib/analytics.js';
+import { sanitizeState, sanitizeSettings, defaults, seed, makeTrackedApp } from '../src/lib/state.js';
+import { range, metrics, buckets, usageBuckets, usageApps } from '../src/lib/analytics.js';
+import { completeShutdown } from '../src/lib/actions.js';
 import { addDays, dk, sod } from '../src/lib/utils.js';
 
 describe('state sanitization / migration', () => {
@@ -119,5 +120,66 @@ describe('analytics', () => {
     expect(out.length).toBe(12);
     const totalCharted = out.reduce((s, x) => s + x.in + x.af, 0);
     expect(totalCharted).toBeGreaterThan(0);
+  });
+});
+
+describe('tracked websites (app-usage measurement)', () => {
+  it('makeTrackedApp normalises URLs to a stable key + label', () => {
+    expect(makeTrackedApp('https://www.figma.com/files')).toMatchObject({ key: 'web:figma.com', url: 'figma.com', label: 'Figma' });
+    expect(makeTrackedApp('notion.so')).toMatchObject({ key: 'web:notion.so', url: 'notion.so' });
+    expect(makeTrackedApp('   ')).toBeNull();
+  });
+
+  it('usageApps appends the user-added websites after the built-ins', () => {
+    const S = { settings: { trackedApps: [{ key: 'web:figma.com', url: 'figma.com', label: 'Figma' }] } };
+    const apps = usageApps(S);
+    expect(apps.some((a) => a.key === 'bc')).toBe(true);
+    const web = apps.find((a) => a.key === 'web:figma.com');
+    expect(web).toBeTruthy();
+    expect(web.web).toBe(true);
+  });
+
+  it('usageBuckets includes per-app values for tracked websites', () => {
+    const S = seed();
+    const [a, b] = range('year');
+    const U = usageBuckets(S, 'year', a, b);
+    expect(U.apps.some((x) => x.key === 'web:classroom.google.com')).toBe(true);
+    expect(U.totals['web:classroom.google.com']).toBeGreaterThan(0);
+    // Each bucket carries the per-app breakdown used by the line chart.
+    expect(U.buckets[0].apps).toHaveProperty('web:quizlet.com');
+  });
+});
+
+describe('demo analytics date range', () => {
+  it('seeds usage for every day from 1 Jan to 30 Oct this year', () => {
+    const S = seed();
+    const year = new Date().getFullYear();
+    const keys = Object.keys(S.usage).sort();
+    expect(keys[0]).toBe(dk(new Date(year, 0, 1)));
+    expect(keys[keys.length - 1]).toBe(dk(new Date(year, 9, 30)));
+  });
+});
+
+describe('configurable end-of-day checklist', () => {
+  it('defaults include five editable checklist items', () => {
+    const items = defaults().shutdownItems;
+    expect(items.length).toBe(5);
+    for (const it of items) {
+      expect(typeof it.key).toBe('string');
+      expect(it.label.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('sanitize falls back to defaults when shutdownItems is empty/invalid', () => {
+    expect(sanitizeSettings({ shutdownItems: [] }).shutdownItems.length).toBe(5);
+    expect(sanitizeSettings({ shutdownItems: 'nope' }).shutdownItems.length).toBe(5);
+  });
+
+  it('completeShutdown records only the ticked items from settings', () => {
+    const S = seed();
+    S.settings.shutdownItems = [{ key: 'a', label: 'Pack up' }, { key: 'b', label: 'Log hours' }];
+    completeShutdown(S, { a: true, b: false });
+    const today = dk(new Date());
+    expect(S.shutdowns[today].items).toEqual(['a']);
   });
 });

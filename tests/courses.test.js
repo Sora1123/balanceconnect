@@ -37,13 +37,13 @@ describe('service catalogue', () => {
 });
 
 describe('demo seed', () => {
-  it('names the owner Mika and describes an independent studio', () => {
+  it('names the owner Mika and describes a Japanese teaching practice', () => {
     const d = defaults();
     expect(d.name).toBe('Mika');
-    expect(d.subject).toMatch(/studio/i);
+    expect(d.subject).toMatch(/japanese/i);
   });
 
-  it('seeds clients across service types, each linked to the catalogue', () => {
+  it('seeds students across service types, each linked to the catalogue', () => {
     const S = seed();
     expect(S.students.length).toBeGreaterThanOrEqual(5);
     const linkedCourseIds = new Set(S.students.map((s) => s.courseId).filter(Boolean));

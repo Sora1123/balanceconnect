@@ -38,12 +38,13 @@ function MessageRow({ m }) {
 }
 
 export default function Inbox() {
-  const { S, route, go, patchRoute } = useStore();
+  const { S, route, patchRoute } = useStore();
   const q = (route.q || '').toLowerCase();
   const f = route.f || 'all';
 
   const { stuName, stu } = useStore();
   let L = S.messages.filter((m) => (f === 'archived' ? m.status === 'archived' : m.status !== 'archived'));
+  if (!S.includeDemo) L = L.filter((m) => !m.demo);
   if (f === 'urgent') L = L.filter((m) => m.urgent);
   if (f === 'normal') L = L.filter((m) => !m.urgent && m.cat !== 'enquiry');
   if (f === 'enquiry') L = L.filter((m) => m.cat === 'enquiry');
@@ -56,7 +57,7 @@ export default function Inbox() {
 
   return (
     <>
-      <div className="row sp"><h2>Inbox</h2><button className="btn sm sage" onClick={() => go('rm')}>Working mode</button></div>
+      <h2>Inbox</h2>
       <p className="mut">Emails collected automatically from your connected Gmail and Outlook accounts. Replies go out from your own mailbox.</p>
       <input
         type="search"
